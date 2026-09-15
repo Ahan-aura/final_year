@@ -19,10 +19,28 @@ PORT = int(os.getenv("PORT", 8000))
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 # Storage Paths
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-SCRATCH_DIR = BASE_DIR / "scratch"
-SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+    DATA_DIR = Path("/tmp/data")
+    SCRATCH_DIR = Path("/tmp/scratch")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Copy seed databases if present in repository source
+    import shutil
+    source_skills = BASE_DIR / "data" / "skills_repository.db"
+    dest_skills = DATA_DIR / "skills_repository.db"
+    if source_skills.exists() and not dest_skills.exists():
+        shutil.copy2(source_skills, dest_skills)
+
+    source_metrics = BASE_DIR / "data" / "metrics_telemetry.db"
+    dest_metrics = DATA_DIR / "metrics_telemetry.db"
+    if source_metrics.exists() and not dest_metrics.exists():
+        shutil.copy2(source_metrics, dest_metrics)
+else:
+    DATA_DIR = BASE_DIR / "data"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    SCRATCH_DIR = BASE_DIR / "scratch"
+    SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
 
 SKILLS_DB_PATH = DATA_DIR / "skills_repository.db"
 METRICS_DB_PATH = DATA_DIR / "metrics_telemetry.db"

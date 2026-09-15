@@ -11,6 +11,8 @@
 **Base Paper:**  
 Pati, A. K. (2025). *Agentic AI: A Comprehensive Survey of Technologies, Applications, and Societal Implications.* IEEE Access, 13, 151824–151837. [DOI: 10.1109/ACCESS.2025.3585609](https://ieeexplore.ieee.org/document/11071266)
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAhan-aura%2Ffinal_year&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20Key%20for%20the%20Workbench&envLink=https%3A%2F%2Faistudio.google.com%2F)
+
 ---
 
 ## 1. Executive Summary & Abstract
@@ -144,3 +146,20 @@ pytest backend/tests/test_all_components.py -v
 6. **Step 6: Run the 10-Task Capstone Benchmark**
    - Click **"Sequential Benchmark"** &rarr; **"Run 10-Task Capstone Suite"**.
    - Watch tasks 4, 6, 7, 9, 10 seamlessly reuse earlier skills in real time!
+
+---
+
+## 6. Cloud Deployment (Vercel & Render)
+
+### 🚀 1-Click Deploy with Vercel
+You can deploy this workbench directly to Vercel with zero server setup:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAhan-aura%2Ffinal_year&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20Key%20for%20the%20Workbench&envLink=https%3A%2F%2Faistudio.google.com%2F)
+
+1. Click the **Deploy with Vercel** button above (or import `Ahan-aura/final_year` on [vercel.com/new](https://vercel.com/new)).
+2. Set the Environment Variable:
+   - `GEMINI_API_KEY`: Your Gemini API key from [Google AI Studio](https://aistudio.google.com/).
+3. Click **Deploy**. Vercel will build and assign your live production URL:
+   `https://final-year-ahan-aura.vercel.app` (or your chosen project name).
+
+The serverless handler automatically routes API calls to `api/index.py` and serves the frontend dashboard with live Chart.js visualization.
