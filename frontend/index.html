@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Self-Evolving Agentic AI Workbench</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="app-header flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+        <i data-lucide="cpu" class="w-6 h-6 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-lg text-white tracking-tight">Self-Evolving Agentic AI Workbench</h1>
+          <span class="px-2 py-0.5 text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/30 rounded-full">v1.0 Capstone</span>
+        </div>
+        <p class="text-xs text-slate-400">Batch A8-2 | Mohan Babu University, Tirupati | Guide: Ms. Anusha Venkat N</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <!-- Session Switcher -->
+      <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5">
+        <i data-lucide="users" class="w-4 h-4 text-slate-400"></i>
+        <span class="text-xs text-slate-400 font-medium">Session:</span>
+        <select id="session-select" class="bg-transparent text-xs font-semibold text-sky-400 focus:outline-none cursor-pointer">
+          <option value="session_alpha" class="bg-slate-900 text-white">session_alpha</option>
+          <option value="session_beta" class="bg-slate-900 text-white">session_beta</option>
+          <option value="session_eval" class="bg-slate-900 text-white">session_eval</option>
+        </select>
+        <button id="btn-new-session" title="Create New Session" class="text-slate-400 hover:text-white ml-1">
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <!-- Quick Status -->
+      <div class="flex items-center gap-2 text-xs bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full text-emerald-400">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>Sandbox Guard Active</span>
+      </div>
+
+      <!-- Skills count badge -->
+      <div class="flex items-center gap-1.5 text-xs bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg text-slate-300">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span id="header-skill-count">0</span> Skills Learned
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button class="nav-tab-btn active" data-tab="tab-workbench">
+      <i data-lucide="play" class="w-4 h-4 inline-block mr-1.5"></i>Workbench Playground
+    </button>
+    <button class="nav-tab-btn" data-tab="tab-repository">
+      <i data-lucide="database" class="w-4 h-4 inline-block mr-1.5"></i>Shared Skill Repository
+    </button>
+    <button class="nav-tab-btn" data-tab="tab-dashboard">
+      <i data-lucide="bar-chart-3" class="w-4 h-4 inline-block mr-1.5"></i>Evolution Analytics
+    </button>
+    <button class="nav-tab-btn" data-tab="tab-benchmark">
+      <i data-lucide="flask-conical" class="w-4 h-4 inline-block mr-1.5"></i>Sequential Benchmark
+    </button>
+    <button class="nav-tab-btn" data-tab="tab-sessions">
+      <i data-lucide="shield-check" class="w-4 h-4 inline-block mr-1.5"></i>Multi-Session Isolation
+    </button>
+    <button class="nav-tab-btn" data-tab="tab-architecture">
+      <i data-lucide="book-open" class="w-4 h-4 inline-block mr-1.5"></i>Architecture & Viva Guide
+    </button>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 p-6 max-w-7xl w-full mx-auto">    <!-- TAB 1: WORKBENCH PLAYGROUND -->
+    <div id="tab-workbench" class="tab-content block space-y-6">
+      <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+        <div class="flex gap-2">
+          <button id="btn-domain-tabular" class="px-4 py-2 rounded-lg text-sm font-semibold bg-sky-600 text-white shadow-md">
+            <i data-lucide="table" class="w-4 h-4 inline mr-1"></i>Domain 1: Tabular Data Cleaning
+          </button>
+          <button id="btn-domain-debugging" class="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            <i data-lucide="bug" class="w-4 h-4 inline mr-1"></i>Domain 2: Code Debugging
+          </button>
+        </div>
+        <div class="text-xs text-slate-400 pr-2">
+          Executes the 6-stage lifecycle: <span class="text-sky-400 font-semibold">Discover &rarr; Synthesize &rarr; Sandbox Validate &rarr; Execute &rarr; Evaluate &rarr; Promote</span>
+        </div>
+      </div>
+
+      <!-- VIEW: TABULAR CLEANING -->
+      <div id="view-tabular" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-card space-y-4">
+            <h3 class="font-bold text-white text-base flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-sky-400"></i>Select Dirty Dataset
+            </h3>
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400">Pre-built Dirty Benchmarks:</label>
+              <select id="tabular-dataset-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-200">
+                <option value="customer_churn">Customer Churn Telecom (Missing, Dups, Charges)</option>
+                <option value="healthcare">Healthcare Patient Vitals (Outliers, Dirty Headers)</option>
+                <option value="ecommerce">E-Commerce Orders (Dates, $ Formats, Duplicates)</option>
+              </select>
+            </div>
+            <div class="pt-2 border-t border-slate-800 space-y-2">
+              <label class="text-xs font-semibold text-slate-400">Or Upload / Paste CSV:</label>
+              <textarea id="custom-csv-input" rows="4" placeholder="Paste raw CSV text here..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-300"></textarea>
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button id="btn-run-tabular-clean" class="btn-primary flex-1 flex items-center justify-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>Clean with Agent
+              </button>
+            </div>
+          </div>
+
+          <div class="glass-card lg:col-span-2 space-y-4">
+            <h3 class="font-bold text-white text-base flex items-center justify-between">
+              <span class="flex items-center gap-2">
+                <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-400"></i>Cleaning Diff Report & Telemetry
+              </span>
+              <span id="tabular-badge-slot"></span>
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-xs text-slate-400">Nulls Resolved</div>
+                <div id="diff-nulls" class="text-lg font-bold text-emerald-400">-</div>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-xs text-slate-400">Duplicates Dropped</div>
+                <div id="diff-dups" class="text-lg font-bold text-sky-400">-</div>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-xs text-slate-400">Pipeline Latency</div>
+                <div id="diff-latency" class="text-lg font-bold text-amber-400">-</div>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-xs text-slate-400">Tokens Conserved</div>
+                <div id="diff-tokens" class="text-lg font-bold text-purple-400">-</div>
+              </div>
+            </div>
+            <div>
+              <div class="text-xs font-semibold text-slate-400 mb-2">Multi-Stage Skill Lifecycle Trace:</div>
+              <div id="tabular-pipeline-steps" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div class="text-xs text-slate-500 italic">Select a dataset and click 'Clean with Agent' to see the trace.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-sm text-slate-300 flex items-center gap-2">
+              <i data-lucide="table-2" class="w-4 h-4 text-sky-400"></i>Transformed Dataset Preview
+            </h4>
+            <span id="table-row-count-badge" class="text-xs text-slate-400"></span>
+          </div>
+          <div class="overflow-x-auto border border-slate-800 rounded-lg max-h-72">
+            <table id="cleaned-preview-table" class="data-table">
+              <thead><tr id="preview-thead"></tr></thead>
+              <tbody id="preview-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: CODE DEBUGGING -->
+      <div id="view-debugging" class="space-y-6 hidden">
+        <!-- Sub-nav toggle between Benchmark Presets and Custom Code -->
+        <div class="flex items-center justify-between bg-slate-900/40 p-2 rounded-xl border border-slate-800">
+          <div class="flex gap-2">
+            <button id="btn-debug-mode-presets" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 text-white shadow">
+              <i data-lucide="layers" class="w-3.5 h-3.5 inline mr-1"></i>Preset Defect Suites (10 Categories)
+            </button>
+            <button id="btn-debug-mode-custom" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+              <i data-lucide="code-2" class="w-3.5 h-3.5 inline mr-1"></i>Custom Code Playground (Debug ANY Code)
+            </button>
+          </div>
+          <span class="text-xs text-slate-400 hidden sm:inline">Autonomous AST Diagnosis &amp; Symbolic/LLM Repair</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left Column: Controls (Preset Mode or Custom Mode) -->
+          <div class="glass-card space-y-4">
+            <!-- Mode 1: Presets -->
+            <div id="debug-presets-panel" class="space-y-4">
+              <h3 class="font-bold text-white text-base flex items-center gap-2">
+                <i data-lucide="bug" class="w-4 h-4 text-rose-400"></i>Select Defect Benchmark
+              </h3>
+              <div class="space-y-2">
+                <label class="text-xs font-semibold text-slate-400">Benchmark Defect Category:</label>
+                <select id="debugging-benchmark-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-200">
+                  <option value="off_by_one">1. Binary Search Boundary (Off-by-one)</option>
+                  <option value="null_none">2. Nested Payload Lookup (NoneType &amp; KeyError)</option>
+                  <option value="type_mismatch">3. User Summary Formatter (Type Mismatch)</option>
+                  <option value="loop_bound">4. Countdown Sequencer (Infinite Loop)</option>
+                  <option value="operator_logic">5. Loan Eligibility Logic (Logical Inversion)</option>
+                  <option value="missing_return">6. Discount Calculator (Zero-Division &amp; Edge Case)</option>
+                  <option value="recursion_depth">7. Recursive Factorial (Missing Base Case)</option>
+                  <option value="palindrome_check">8. Palindrome Verifier (Out-of-Bounds &amp; Casing)</option>
+                  <option value="matrix_transpose">9. 2D Matrix Transpose (Inverted Row/Col Index)</option>
+                  <option value="average_accumulator">10. List Average (Zero Division on Empty List)</option>
+                </select>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-1">
+                <div class="text-xs font-bold text-slate-300" id="debug-subtask-badge">Subtask: off_by_one_fix</div>
+                <p class="text-xs text-slate-400" id="debug-benchmark-desc">Defect description will load here.</p>
+              </div>
+            </div>
+
+            <!-- Mode 2: Custom Code Editor Panel -->
+            <div id="debug-custom-panel" class="space-y-3 hidden">
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-white text-base flex items-center gap-2">
+                  <i data-lucide="code" class="w-4 h-4 text-sky-400"></i>Custom Python Function
+                </h3>
+                <div class="flex gap-1.5">
+                  <button id="btn-inspect-custom-code" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-400 px-2 py-1 rounded border border-slate-700 flex items-center gap-1">
+                    <i data-lucide="search" class="w-3 h-3"></i>Auto-Detect
+                  </button>
+                  <button id="btn-clear-custom-code" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-rose-400 px-2 py-1 rounded border border-slate-700 flex items-center gap-1">
+                    <i data-lucide="trash" class="w-3 h-3"></i>Clear
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-slate-400">Paste Any Buggy Python Code or Script:</label>
+                <textarea id="custom-buggy-code" rows="8" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-200 mt-1" placeholder="# Paste any function or script here:&#10;numbers = [10, 20, 4, 45, 99]&#10;print('Second largest number is:', ...)"></textarea>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[11px] font-semibold text-slate-400">Entrypoint (auto-detected):</label>
+                  <input type="text" id="custom-entrypoint" placeholder="e.g. solution (auto-detected)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 mt-1 font-mono">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-slate-400">Quick Templates:</label>
+                  <select id="custom-template-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 mt-1">
+                    <option value="">-- Load Example --</option>
+                    <option value="second_largest">Second Largest Number</option>
+                    <option value="fibonacci">Recursive Fibonacci</option>
+                    <option value="palindrome">Palindrome Checker</option>
+                    <option value="matrix">Matrix Transpose</option>
+                    <option value="average">Safe Average</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold text-slate-400 flex items-center justify-between">
+                  <span>Test Cases (Optional):</span>
+                  <span class="text-emerald-400 font-normal text-[10px]">Zero setup required</span>
+                </label>
+                <textarea id="custom-tests-json" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-300 mt-1" placeholder='Leave blank for auto-diagnosis and execution, or enter [{"inputs": [1], "expected": 2}]'></textarea>
+                <p class="text-[10px] text-slate-500 mt-0.5">The sandbox automatically runs and repairs any function or top-level script.</p>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <button id="btn-run-debugging-repair" class="btn-primary w-full flex items-center justify-center gap-2">
+              <i data-lucide="wrench" class="w-4 h-4"></i>Diagnose &amp; Repair with Agent
+            </button>
+          </div>
+
+          <!-- Right Column: Results & Diff -->
+          <div class="glass-card lg:col-span-2 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-white text-base flex items-center gap-2">
+                <i data-lucide="git-compare" class="w-4 h-4 text-purple-400"></i>Autonomous Repair &amp; Verification Diff
+              </h3>
+              <span id="debugging-badge-slot"></span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <div class="text-xs font-semibold text-rose-400 mb-1 flex items-center gap-1">
+                  <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>Buggy Source Code
+                </div>
+                <pre id="buggy-code-view" class="code-box text-xs h-60 overflow-y-auto"></pre>
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>Repaired &amp; Validated Code
+                </div>
+                <pre id="repaired-code-view" class="code-box text-xs h-60 overflow-y-auto"></pre>
+              </div>
+            </div>
+
+            <!-- Program Stdout Display -->
+            <div id="debug-output-box" class="hidden bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-[11px] font-semibold text-sky-400 mb-1 flex items-center gap-1">
+                <i data-lucide="terminal" class="w-3.5 h-3.5"></i>Program Execution Output (stdout):
+              </div>
+              <pre id="debug-program-output" class="text-xs font-mono text-emerald-300 whitespace-pre-wrap"></pre>
+            </div>
+
+            <div class="border-t border-slate-800 pt-3">
+              <div class="text-xs font-semibold text-slate-400 mb-2">Sandbox Diagnostics &amp; Verification Suite:</div>
+              <div id="debug-verification-results" class="space-y-1.5 max-h-36 overflow-y-auto">
+                <div class="text-xs text-slate-500 italic">Click 'Diagnose &amp; Repair with Agent' to run test verification.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>    <!-- TAB 2: SHARED SKILL REPOSITORY -->
+    <div id="tab-repository" class="tab-content hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-white">Shared Skill Repository</h2>
+          <p class="text-xs text-slate-400">Validated reusable functions discovered, synthesized, and promoted across all agent sessions.</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="btn-refresh-skills" class="btn-secondary text-xs flex items-center gap-1">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Refresh
+          </button>
+          <button id="btn-reset-repo" class="btn-secondary text-xs text-rose-400 hover:text-rose-300 border-rose-900/40 flex items-center gap-1">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>Reset Repo
+          </button>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <select id="repo-filter-domain" class="bg-slate-900 border border-slate-800 text-xs text-slate-300 rounded-lg px-3 py-2">
+          <option value="">All Domains</option>
+          <option value="tabular_cleaning">Tabular Cleaning</option>
+          <option value="code_debugging">Code Debugging</option>
+        </select>
+        <input type="text" id="repo-search-input" placeholder="Search skills by task description or subtask..." class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200">
+      </div>
+
+      <div id="skills-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- TAB 3: EVOLUTION ANALYTICS DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-white">Self-Evolution Observability Dashboard</h2>
+          <p class="text-xs text-slate-400">Empirical measurement of skill accumulation, cost reduction, and performance gains over time.</p>
+        </div>
+        <button id="btn-refresh-dashboard" class="btn-secondary text-xs flex items-center gap-1">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Refresh Metrics
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-card">
+          <div class="text-xs text-slate-400 flex items-center justify-between">
+            <span>Total Tasks Executed</span>
+            <i data-lucide="activity" class="w-4 h-4 text-sky-400"></i>
+          </div>
+          <div id="kpi-total-tasks" class="text-2xl font-bold text-white mt-1">0</div>
+          <div class="text-[11px] text-slate-500 mt-1">Across all benchmark runs</div>
+        </div>
+
+        <div class="glass-card">
+          <div class="text-xs text-slate-400 flex items-center justify-between">
+            <span>Skill Reuse Rate</span>
+            <i data-lucide="repeat" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div id="kpi-reuse-rate" class="text-2xl font-bold text-emerald-400 mt-1">0.0%</div>
+          <div class="text-[11px] text-slate-500 mt-1">Percent of tasks using prior skills</div>
+        </div>
+
+        <div class="glass-card">
+          <div class="text-xs text-slate-400 flex items-center justify-between">
+            <span>Tokens Conserved</span>
+            <i data-lucide="zap" class="w-4 h-4 text-purple-400"></i>
+          </div>
+          <div id="kpi-tokens-saved" class="text-2xl font-bold text-purple-400 mt-1">0</div>
+          <div id="kpi-cost-saved" class="text-[11px] text-slate-500 mt-1">~$0.00 saved vs re-synthesis</div>
+        </div>
+
+        <div class="glass-card">
+          <div class="text-xs text-slate-400 flex items-center justify-between">
+            <span>Latency Speedup</span>
+            <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <div id="kpi-latency-speedup" class="text-2xl font-bold text-amber-400 mt-1">95%+</div>
+          <div class="text-[11px] text-slate-500 mt-1">Reused: &lt;10ms vs Synth: ~2000ms</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass-card space-y-3">
+          <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+            <i data-lucide="trending-up" class="w-4 h-4 text-sky-400"></i>Skill Accumulation & Reuse Over Tasks
+          </h4>
+          <div class="h-64"><canvas id="chart-growth"></canvas></div>
+        </div>
+
+        <div class="glass-card space-y-3">
+          <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+            <i data-lucide="gauge" class="w-4 h-4 text-emerald-400"></i>Execution Latency Drop (ms)
+          </h4>
+          <div class="h-64"><canvas id="chart-latency"></canvas></div>
+        </div>
+
+        <div class="glass-card space-y-3">
+          <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+            <i data-lucide="coins" class="w-4 h-4 text-purple-400"></i>Token Cost Per Task
+          </h4>
+          <div class="h-64"><canvas id="chart-tokens"></canvas></div>
+        </div>
+
+        <div class="glass-card space-y-3">
+          <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+            <i data-lucide="scale" class="w-4 h-4 text-amber-400"></i>Ablation: Self-Evolving Agent vs Direct LLM
+          </h4>
+          <div class="h-64"><canvas id="chart-ablation"></canvas></div>
+        </div>
+      </div>
+    </div>    <!-- TAB 4: SEQUENTIAL BENCHMARK RUNNER -->
+    <div id="tab-benchmark" class="tab-content hidden space-y-6">
+      <div class="glass-card space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-white">Automated Sequential Benchmark Suite</h2>
+            <p class="text-xs text-slate-400">Executes a sequence of 10 mixed tabular and debugging tasks in order to exhibit autonomous skill accumulation and instant reuse.</p>
+          </div>
+          <button id="btn-trigger-benchmark" class="btn-primary flex items-center gap-2">
+            <i data-lucide="play-circle" class="w-4 h-4"></i>Run 10-Task Capstone Suite
+          </button>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-800 rounded-lg">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>Task ID & Name</th>
+                <th>Domain & Subtask</th>
+                <th>Lifecycle Status</th>
+                <th>Latency</th>
+                <th>Tokens Saved</th>
+                <th>Accumulated Skills</th>
+                <th>Outcome</th>
+              </tr>
+            </thead>
+            <tbody id="benchmark-results-tbody">
+              <tr>
+                <td colspan="8" class="text-center text-slate-500 py-6 italic">Click 'Run 10-Task Capstone Suite' to start the live benchmark.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: MULTI-SESSION ISOLATION -->
+    <div id="tab-sessions" class="tab-content hidden space-y-6">
+      <div class="glass-card space-y-4">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-sky-400"></i>Multi-Session Sharing vs Data Isolation
+        </h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          As formulated in the Capstone Abstract: <em>"Multiple sessions may optionally share the validated repository while maintaining per-session data isolation."</em>
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          <div class="p-4 bg-slate-900/80 rounded-lg border border-slate-800 space-y-3">
+            <div class="flex items-center gap-2 font-bold text-sky-400 text-sm">
+              <i data-lucide="share-2" class="w-4 h-4"></i>Shared Layer: Skill Repository
+            </div>
+            <p class="text-xs text-slate-300">
+              When <strong>Session Alpha</strong> synthesizes and validates a new capability, it is promoted with <code class="text-sky-300">visibility: shared</code>.
+            </p>
+            <p class="text-xs text-slate-300">
+              When <strong>Session Beta</strong> subsequently executes a similar task, it immediately discovers and reuses Session Alpha's validated code with <strong>zero synthesis cost</strong> and <strong>sub-10ms latency</strong>!
+            </p>
+          </div>
+
+          <div class="p-4 bg-slate-900/80 rounded-lg border border-slate-800 space-y-3">
+            <div class="flex items-center gap-2 font-bold text-emerald-400 text-sm">
+              <i data-lucide="lock" class="w-4 h-4"></i>Isolated Layer: Task Data & Files
+            </div>
+            <p class="text-xs text-slate-300">
+              All raw task inputs, CSV data, uploaded proprietary records, and execution telemetry are strictly scoped by <code class="text-emerald-300">session_id</code>.
+            </p>
+            <p class="text-xs text-slate-300">
+              Session Beta has <strong>zero access</strong> to Session Alpha's raw records, uploaded files, or private session logs.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: ARCHITECTURE & VIVA GUIDE -->
+    <div id="tab-architecture" class="tab-content hidden space-y-6">
+      <div class="glass-card space-y-4">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="book-open" class="w-5 h-5 text-indigo-400"></i>Academic Foundations & Viva Examination Defense
+        </h2>
+        <p class="text-xs text-slate-400">
+          Aligned with the Base Paper: <strong>Pati, A. K. (2025). Agentic AI: A Comprehensive Survey of Technologies, Applications, and Societal Implications. IEEE Access, 13, 151824–151837.</strong>
+        </p>
+
+        <div class="p-4 bg-slate-900/90 rounded-lg border border-slate-800 space-y-2">
+          <h4 class="font-bold text-sm text-sky-400">1. Connection to Base Paper (Pati, 2025)</h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Our system operationalizes the survey paper's taxonomy of <strong>"learning agents"</strong> and <strong>"meta-reasoning agents"</strong> (Section III-C). It directly addresses the critical research gap highlighted in Sections IV-B-3 and VII-A: <em>the lack of systematic, measurable evaluation frameworks for agent adaptation</em>. Rather than relying on internal closed benchmarks, our workbench makes skill acquisition observable, verifiable, and measurable.
+          </p>
+        </div>
+
+        <div class="space-y-3 pt-2">
+          <h4 class="font-bold text-sm text-white">2. Capstone Viva Q&A Guide (Prepared for Reviewers)</h4>
+
+          <div class="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-1">
+            <div class="text-xs font-bold text-amber-400">Q1: How do you guarantee a "validated" skill is actually safe to reuse on new inputs?</div>
+            <p class="text-xs text-slate-300">A: Through our two-tier validation gate. First, the AST Security Guard prohibits dangerous modules (os, subprocess, network calls). Second, the code must achieve &ge;90% accuracy on held-out test cases in an isolated execution sandbox before repository promotion.</p>
+          </div>
+
+          <div class="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-1">
+            <div class="text-xs font-bold text-amber-400">Q2: What happens if a validated skill starts failing later (skill drift)?</div>
+            <p class="text-xs text-slate-300">A: The repository tracks per-skill success rates dynamically. If repeated failures cause a skill's success rate to fall below threshold, it can be automatically flagged for re-validation or retirement.</p>
+          </div>
+
+          <div class="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-1">
+            <div class="text-xs font-bold text-amber-400">Q3: How is your skill discovery different from just caching LLM responses?</div>
+            <p class="text-xs text-slate-300">A: Response caching stores static outputs for exact prompt matches. Our skill discovery stores parameterized executable Python logic discovered via dense semantic embeddings and cosine similarity, generalizing across unseen inputs.</p>
+          </div>
+
+          <div class="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-1">
+            <div class="text-xs font-bold text-amber-400">Q4: What is your sandbox actually isolating against?</div>
+            <p class="text-xs text-slate-300">A: It isolates against both malicious synthesis (preventing system file modifications, subprocessing, and network socket connections) and runtime bugs (infinite loops and hangs via thread execution timeouts).</p>
+          </div>
+
+          <div class="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-1">
+            <div class="text-xs font-bold text-amber-400">Q5: Why these two domains specifically (tabular cleaning & code debugging)?</div>
+            <p class="text-xs text-slate-300">A: Tabular cleaning represents data-centric stateful transformations with clear statistical invariant checks, while code debugging represents symbolic algorithmic reasoning with deterministic pass/fail unit test suites.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Skill Modal -->
+  <div id="skill-modal" class="modal-backdrop hidden">
+    <div class="glass-card max-w-2xl w-full mx-4 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="modal-skill-title" class="font-bold text-base text-white">Skill Details</h3>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="flex-1 overflow-y-auto space-y-3 pr-2">
+        <div class="flex items-center gap-2">
+          <span id="modal-skill-badge" class="badge badge-reused">Validated</span>
+          <span id="modal-skill-domain" class="text-xs text-slate-400"></span>
+        </div>
+        <p id="modal-skill-desc" class="text-xs text-slate-300"></p>
+        <div>
+          <div class="text-xs font-semibold text-slate-400 mb-1">Executable Python Implementation:</div>
+          <pre id="modal-skill-code" class="code-box text-xs max-h-64"></pre>
+        </div>
+        <div id="modal-test-output" class="hidden p-3 bg-slate-900 border border-slate-800 rounded-lg text-xs space-y-1"></div>
+      </div>
+      <div class="flex justify-end gap-2 border-t border-slate-800 pt-3">
+        <button id="btn-test-skill-sandbox" class="btn-primary text-xs flex items-center gap-1.5"><i data-lucide="play" class="w-3.5 h-3.5"></i>Execute in Sandbox</button>
+        <button id="btn-modal-cancel" class="btn-secondary text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="border-t border-slate-800 py-3 px-6 text-center text-xs text-slate-500 bg-slate-950">
+    Self-Evolving Agentic AI Workbench &copy; 2026 Batch A8-2 | Mohan Babu University, Tirupati | Based on IEEE Access (Pati, 2025)
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
