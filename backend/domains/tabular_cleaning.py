@@ -211,6 +211,8 @@ class TabularCleaningAgent:
         import json as _json
         json_safe_records = _json.loads(working_df.to_json(orient="records"))
 
+        chart_info = extract_chart_metadata(working_df, instr_clean)
+
         return {
             "success": True,
             "cleaned_dataframe": working_df,
@@ -219,7 +221,8 @@ class TabularCleaningAgent:
             "diff_report": diff_report,
             "pipeline_trace": pipeline_trace,
             "initial_profile": initial_profile,
-            "final_profile": final_profile
+            "final_profile": final_profile,
+            "chart": chart_info
         }
 
 _agent = None
@@ -229,3 +232,160 @@ def get_tabular_agent() -> TabularCleaningAgent:
     if _agent is None:
         _agent = TabularCleaningAgent()
     return _agent
+
+def extract_chart_metadata(df: pd.DataFrame, instruction: str) -> Optional[Dict[str, Any]]:
+    """
+    Extracts chart/graph parameters (bar, pie, line) and generates
+    both Chart.js dataset config and executable Matplotlib code for Jupyter notebook export.
+    """
+    if not instruction or df.empty:
+        return None
+
+    instr_lower = instruction.lower()
+    vis_keywords = ["bar", "graph", "plot", "chart", "histogram", "pie", "scatter", "visualize", "visualization", "distribution", "vs"]
+    if not any(k in instr_lower for k in vis_keywords):
+        return None
+
+    chart_type = "pie" if "pie" in instr_lower else ("line" if "line" in instr_lower else "bar")
+
+    cols = list(df.columns)
+    matched = []
+    for c in cols:
+        c_clean = c.strip().lower()
+        if c_clean in instr_lower or (len(c_clean) > 3 and c_clean[:-1] in instr_lower):
+            matched.append(c)
+        else:
+            for word in instr_lower.split():
+                if len(word) >= 4 and (word in c_clean or c_clean.startswith(word[:4])):
+                    matched.append(c)
+                    break
+
+    matched = list(dict.fromkeys(matched))
+
+    title = "Data Visualization"
+    x_label = "Categories"
+    y_label = "Values"
+    labels = []
+    values = []
+
+    if len(matched) >= 2:
+        c1, c2 = matched[0], matched[1]
+        c1_num = pd.api.types.is_numeric_dtype(df[c1])
+        c2_num = pd.api.types.is_numeric_dtype(df[c2])
+        if c1_num and not c2_num:
+            cat_col, num_col = c2, c1
+            grp = df.groupby(cat_col)[num_col].mean().head(15)
+            labels = list(grp.index.astype(str))
+            values = [round(float(v), 2) for v in grp.values]
+            title = f"{num_col} by {cat_col}"
+            x_label, y_label = cat_col, f"Average {num_col}"
+        elif c2_num and not c1_num:
+            cat_col, num_col = c1, c2
+            grp = df.groupby(cat_col)[num_col].mean().head(15)
+            labels = list(grp.index.astype(str))
+            values = [round(float(v), 2) for v in grp.values]
+            title = f"{num_col} by {cat_col}"
+            x_label, y_label = cat_col, f"Average {num_col}"
+        elif not c1_num and not c2_num:
+            # Both categorical: e.g. Customer vs Country
+            n1 = df[c1].nunique()
+            n2 = df[c2].nunique()
+            if n2 < n1:
+                # c2 has fewer unique values (e.g. Country), c1 has more (e.g. Customer)
+                grp_col, val_col = c2, c1
+            elif n1 < n2:
+                # c1 has fewer unique values (e.g. Country), c2 has more (e.g. Customer)
+                grp_col, val_col = c1, c2
+            else:
+                if "vs" in instr_lower:
+                    parts = instr_lower.split("vs")
+                    first_part = parts[0].lower()
+                    if c1.lower() in first_part or (len(c1) >= 4 and c1.lower()[:4] in first_part):
+                        val_col, grp_col = c1, c2
+                    else:
+                        val_col, grp_col = c2, c1
+                else:
+                    val_col, grp_col = c1, c2
+            grp = df.groupby(grp_col)[val_col].count().head(15)
+            labels = list(grp.index.astype(str))
+            values = [int(v) for v in grp.values]
+            title = f"{val_col} Count by {grp_col}"
+            x_label, y_label = grp_col, f"{val_col} Count"
+        else:
+            labels = [str(x) for x in df[c1].head(15)]
+            values = [float(y) for y in df[c2].head(15)]
+            title = f"{c2} vs {c1}"
+            x_label, y_label = c1, c2
+    elif len(matched) == 1:
+        col = matched[0]
+        if not pd.api.types.is_numeric_dtype(df[col]):
+            counts = df[col].astype(str).value_counts().head(12)
+            labels = list(counts.index)
+            values = [int(v) for v in counts.values]
+            title = f"Distribution of {col}"
+            x_label, y_label = col, "Count"
+        else:
+            labels = [f"Row {i+1}" for i in range(min(15, len(df)))]
+            values = [float(v) for v in df[col].head(15)]
+            title = f"Values of {col}"
+            x_label, y_label = "Index", col
+    else:
+        # Fallback to first categorical column
+        cat_cols = [c for c in cols if not pd.api.types.is_numeric_dtype(df[c])]
+        num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
+        if cat_cols and num_cols:
+            cat_col, num_col = cat_cols[0], num_cols[0]
+            grp = df.groupby(cat_col)[num_col].mean().head(12)
+            labels = list(grp.index.astype(str))
+            values = [round(float(v), 2) for v in grp.values]
+            title = f"{num_col} by {cat_col}"
+            x_label, y_label = cat_col, num_col
+        elif cat_cols:
+            col = cat_cols[0]
+            counts = df[col].astype(str).value_counts().head(10)
+            labels = list(counts.index)
+            values = [int(v) for v in counts.values]
+            title = f"Counts by {col}"
+            x_label, y_label = col, "Count"
+        else:
+            return None
+
+    # Modern color palettes for bar / pie charts
+    palette = [
+        "rgba(56, 189, 248, 0.8)",   # sky-400
+        "rgba(129, 140, 248, 0.8)",  # indigo-400
+        "rgba(52, 211, 153, 0.8)",   # emerald-400
+        "rgba(251, 191, 36, 0.8)",   # amber-400
+        "rgba(244, 63, 94, 0.8)",    # rose-500
+        "rgba(192, 132, 252, 0.8)",  # purple-400
+        "rgba(45, 212, 191, 0.8)",   # teal-400
+        "rgba(251, 146, 60, 0.8)"    # orange-400
+    ]
+    bg_colors = [palette[i % len(palette)] for i in range(len(labels))]
+
+    python_matplotlib_code = f'''import matplotlib.pyplot as plt
+
+# Visualization: {title}
+categories = {labels!r}
+values = {values!r}
+
+plt.figure(figsize=(9, 4.5))
+plt.bar(categories, values, color='#38bdf8', edgecolor='#0284c7')
+plt.title('{title}', fontsize=14, fontweight='bold')
+plt.xlabel('{x_label}', fontsize=11)
+plt.ylabel('{y_label}', fontsize=11)
+plt.xticks(rotation=30 if len(categories) > 4 else 0, ha='right')
+plt.grid(axis='y', linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()'''
+
+    return {
+        "type": chart_type,
+        "title": title,
+        "x_label": x_label,
+        "y_label": y_label,
+        "labels": labels,
+        "data": values,
+        "background_colors": bg_colors,
+        "python_code": python_matplotlib_code
+    }

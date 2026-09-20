@@ -117,6 +117,16 @@ function setupSessionSwitcher() {
   }
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // -------------------------------------------------------------
 // Domain 1: Tabular Workbench Logic
 // -------------------------------------------------------------
@@ -134,6 +144,8 @@ function setupTabularWorkbench() {
   const btnUploadFile = document.getElementById("btn-upload-file");
   const btnDownloadCsv = document.getElementById("btn-download-csv");
   const btnDownloadReport = document.getElementById("btn-download-report");
+  const btnDownloadNotebook = document.getElementById("btn-download-notebook");
+  const btnDownloadNotebookSec = document.getElementById("btn-download-notebook-secondary");
 
   const RAVI_PRIYA_CSV = `Name,Age,City\nRavi,21,Chennai\nPriya,22,Hyderabad\nRavi,21,Chennai\nArun,20,Bangalore\nPriya,,Hyderabad`;
   const EMPLOYEES_CSV = `Employee,Salary,Department\nAhan,50000,AI Research\nVikram,75000,Backend\nSneha,60000,Product\nRahul,80000,Frontend`;
@@ -142,6 +154,8 @@ function setupTabularWorkbench() {
   let originalCsvText = "";
   let activeDatasetName = "dataset.csv";
   let lastTabularResult = null;
+  let dynamicChartInstance = null;
+  let sessionInstructionHistory = [];
 
   function setOriginalCsv(text, label = "Original") {
     originalCsvText = text;
@@ -303,6 +317,399 @@ function setupTabularWorkbench() {
     });
   }
 
+  // Dynamic Chart.js Visualization Engine
+  function renderDynamicChart(chartData) {
+    const card = document.getElementById("chart-visualization-card");
+    const canvas = document.getElementById("chart-dynamic-canvas");
+    const titleEl = document.getElementById("chart-dynamic-title");
+    const badgeEl = document.getElementById("chart-dynamic-type-badge");
+    const subEl = document.getElementById("chart-dynamic-subtitle");
+
+    if (!card || !canvas || !chartData) return;
+
+    if (titleEl) titleEl.textContent = chartData.title || "Dynamic Visualization";
+    if (badgeEl) badgeEl.textContent = (chartData.type || "bar").toUpperCase() + " CHART";
+    if (subEl) subEl.textContent = `${chartData.labels ? chartData.labels.length : 0} categories`;
+
+    card.classList.remove("hidden");
+
+    if (dynamicChartInstance) {
+      dynamicChartInstance.destroy();
+      dynamicChartInstance = null;
+    }
+
+    const chartType = chartData.type || "bar";
+    const isPie = chartType === "pie";
+    const isLine = chartType === "line";
+
+    const ctx = canvas.getContext("2d");
+    dynamicChartInstance = new Chart(ctx, {
+      type: chartType,
+      data: {
+        labels: chartData.labels || [],
+        datasets: [{
+          label: chartData.y_label || "Count",
+          data: chartData.data || [],
+          backgroundColor: chartData.background_colors || "rgba(56, 189, 248, 0.8)",
+          borderColor: isLine ? "#38bdf8" : "#0284c7",
+          borderWidth: 1.5,
+          fill: isLine ? false : true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: isPie,
+            labels: { color: "#cbd5e1", font: { size: 11 } }
+          },
+          tooltip: {
+            backgroundColor: "#0f172a",
+            titleColor: "#38bdf8",
+            bodyColor: "#f1f5f9",
+            borderColor: "#334155",
+            borderWidth: 1,
+            padding: 10
+          }
+        },
+        scales: isPie ? {} : {
+          x: {
+            grid: { color: "rgba(51, 65, 85, 0.25)" },
+            ticks: { color: "#94a3b8", font: { size: 10 }, maxRotation: 45 }
+          },
+          y: {
+            grid: { color: "rgba(51, 65, 85, 0.25)" },
+            ticks: { color: "#94a3b8", font: { size: 10 } },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    try {
+      card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } catch (e) {}
+  }
+
+  // Record user instruction & update notebook audit trail
+  function recordAndRenderNotebookStep(instruction, data) {
+    const diff = data.diff_report || {};
+    const initRows = data.initial_profile ? data.initial_profile.row_count : (data.total_rows || 0);
+    const finalRows = data.final_profile ? data.final_profile.row_count : (data.total_rows || 0);
+
+    let codes = [];
+    if (data.pipeline_trace && data.pipeline_trace.length > 0) {
+      data.pipeline_trace.forEach(st => {
+        if (st.code_used) {
+          codes.push({
+            subtask: st.subtask || st.skill_name || "transform",
+            code: st.code_used,
+            status: st.lifecycle_status || "executed"
+          });
+        }
+      });
+    }
+
+    const stepObj = {
+      stepIndex: sessionInstructionHistory.length + 1,
+      time: new Date().toLocaleTimeString(),
+      instruction: instruction,
+      datasetName: activeDatasetName,
+      initRows: initRows,
+      finalRows: finalRows,
+      rowsDiff: initRows - finalRows,
+      nullsResolved: diff.nulls_resolved || 0,
+      dupsRemoved: diff.duplicates_removed || 0,
+      latencyMs: diff.pipeline_time_ms || 0,
+      tokensSaved: diff.total_tokens_saved || 0,
+      pipelineTrace: data.pipeline_trace || [],
+      codes: codes,
+      chart: data.chart || null
+    };
+
+    sessionInstructionHistory.push(stepObj);
+    renderNotebookHistory();
+  }
+
+  // Render notebook history steps in UI
+  function renderNotebookHistory() {
+    const container = document.getElementById("notebook-history-steps");
+    const countBadge = document.getElementById("notebook-steps-count");
+    if (!container) return;
+
+    if (countBadge) {
+      countBadge.textContent = `${sessionInstructionHistory.length} instruction${sessionInstructionHistory.length === 1 ? '' : 's'} recorded`;
+    }
+
+    if (sessionInstructionHistory.length === 0) {
+      container.innerHTML = `
+        <div class="text-xs text-slate-500 italic p-3 bg-slate-900/40 rounded-lg border border-slate-800/50">
+          No instructions executed yet in this session. Upload a CSV or choose a preset and give any instruction (e.g., "customer vs country bar graph" or "delete Employee name starting with V") to start recording the notebook audit trail.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = "";
+
+    sessionInstructionHistory.forEach((item) => {
+      const card = document.createElement("div");
+      card.className = "p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2.5 transition-all hover:border-slate-700";
+
+      const statusBadges = item.pipelineTrace.map(st => {
+        const isReused = st.lifecycle_status === "reused";
+        return `<span class="badge ${isReused ? 'badge-reused' : 'badge-learned'} text-[10px]">${isReused ? 'REUSED' : 'LEARNED'}: ${escapeHtml(st.skill_name || st.subtask)}</span>`;
+      }).join(" ");
+
+      let codeBlockHtml = "";
+      if (item.codes && item.codes.length > 0) {
+        codeBlockHtml = item.codes.map((c, i) => `
+          <div class="mt-2">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono bg-slate-950 px-2.5 py-1 rounded-t border-t border-x border-slate-800">
+              <span>🐍 Python Code (#${i+1}: ${escapeHtml(c.subtask)})</span>
+              <span class="text-sky-400 font-medium">${escapeHtml(c.status)}</span>
+            </div>
+            <pre class="bg-slate-950 p-2.5 rounded-b border border-slate-800 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-40 leading-relaxed"><code>${escapeHtml(c.code)}</code></pre>
+          </div>
+        `).join("");
+      }
+
+      let chartBadgeHtml = "";
+      if (item.chart) {
+        const sampleLabels = item.chart.labels ? item.chart.labels.slice(0, 5).join(", ") : "";
+        const sampleValues = item.chart.data ? item.chart.data.slice(0, 5).join(", ") : "";
+        chartBadgeHtml = `
+          <div class="bg-emerald-950/30 border border-emerald-800/50 rounded-lg p-2.5 space-y-1.5 mt-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-emerald-400">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 inline"></i>
+                📊 Chart Generated: ${escapeHtml(item.chart.title)} (${item.chart.type.toUpperCase()})
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">${item.chart.labels ? item.chart.labels.length : 0} categories</span>
+            </div>
+            <div class="text-[11px] text-slate-300 font-mono">
+              [${escapeHtml(sampleLabels)}${item.chart.labels && item.chart.labels.length > 5 ? "..." : ""}] &rarr; [${escapeHtml(sampleValues)}${item.chart.data && item.chart.data.length > 5 ? "..." : ""}]
+            </div>
+            <div class="mt-1">
+              <div class="text-[10px] text-slate-400 font-mono">Matplotlib Code (included in .ipynb):</div>
+              <pre class="bg-slate-950 p-2 rounded border border-slate-800 text-[10px] font-mono text-sky-300 overflow-x-auto max-h-32"><code>${escapeHtml(item.chart.python_code)}</code></pre>
+            </div>
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/70 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold font-mono">Step #${item.stepIndex}</span>
+            <span class="text-xs font-semibold text-white">Prompt: <span class="text-amber-300">"${escapeHtml(item.instruction)}"</span></span>
+          </div>
+          <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+            <span>${item.time}</span>
+            <span>&bull;</span>
+            <span class="text-amber-400">${item.latencyMs}ms</span>
+            <span>&bull;</span>
+            <span class="text-purple-400">+${item.tokensSaved} tokens</span>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 pt-0.5">
+          <span class="text-[11px] text-slate-400 font-mono">Dataset Rows: <strong class="text-sky-300">${item.initRows}</strong> &rarr; <strong class="text-emerald-300">${item.finalRows}</strong></span>
+          ${item.nullsResolved > 0 ? `<span class="text-[11px] text-emerald-400 font-mono">(${item.nullsResolved} nulls resolved)</span>` : ''}
+          ${item.dupsRemoved > 0 ? `<span class="text-[11px] text-sky-400 font-mono">(${item.dupsRemoved} dups removed)</span>` : ''}
+          <div class="ml-auto flex flex-wrap gap-1.5">${statusBadges}</div>
+        </div>
+
+        ${codeBlockHtml}
+        ${chartBadgeHtml}
+      `;
+
+      container.appendChild(card);
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  // Jupyter Notebook (.ipynb) Exporter
+  function downloadJupyterNotebook() {
+    let baseName = activeDatasetName.replace(/\.csv$/i, "");
+    let downloadFileName = `${baseName}_analysis_pipeline.ipynb`;
+
+    const rawData = originalCsvText || (customCsv ? customCsv.value.trim() : "");
+    const escapedRaw = rawData.replace(/\\/g, "\\\\").replace(/"""/g, '\\"\\"\\"');
+
+    const cells = [];
+
+    // Cell 1: Academic Title and Project Header
+    cells.push({
+      cell_type: "markdown",
+      metadata: {},
+      source: [
+        `# 🚀 Self-Evolving Agentic AI Workbench — Data Analysis & Transformation Pipeline\n`,
+        `**Institution:** Mohan Babu University, Tirupati  \n`,
+        `**Batch:** Batch A8-2 | **Guide:** Ms. Anusha Venkat N  \n`,
+        `**Base Paper:** Pati, A. K. (2025). Agentic AI: Autonomous Reasoning and Adaptive Problem-Solving. *IEEE Access*.  \n`,
+        `**Dataset:** \`${activeDatasetName}\` | **Session ID:** \`${currentSession}\`  \n`,
+        `**Generated At:** ${new Date().toLocaleString()}  \n\n`,
+        `---\n\n`,
+        `### 📌 Overview & Audit Trail\n`,
+        `This Jupyter Notebook contains the step-by-step reproducible record of all natural language instructions given to the agent, the autonomous multi-stage skill lifecycle executions, the generated and reused Python transformation functions, and data visualizations.`
+      ]
+    });
+
+    // Cell 2: Setup Code Cell
+    cells.push({
+      cell_type: "code",
+      execution_count: 1,
+      metadata: {},
+      outputs: [],
+      source: [
+        `import io\n`,
+        `import pandas as pd\n`,
+        `import numpy as np\n`,
+        `import matplotlib.pyplot as plt\n\n`,
+        `# Raw dataset snapshot embedded for 100% self-contained reproducibility\n`,
+        `raw_csv = """${escapedRaw}"""\n`,
+        `df = pd.read_csv(io.StringIO(raw_csv))\n`,
+        `print(f"Dataset loaded: '{activeDatasetName}' with shape {df.shape}")\n`,
+        `df.head()`
+      ]
+    });
+
+    if (sessionInstructionHistory.length === 0) {
+      cells.push({
+        cell_type: "markdown",
+        metadata: {},
+        source: [
+          `### 🔍 Initial Dataset Inspection\n`,
+          `No instructions were executed yet in this session. Initial profile and overview:`
+        ]
+      });
+      cells.push({
+        cell_type: "code",
+        execution_count: 2,
+        metadata: {},
+        outputs: [],
+        source: [
+          `print("Dataframe Info:")\n`,
+          `df.info()\n`,
+          `print("\\nSummary Statistics:")\n`,
+          `df.describe(include='all')`
+        ]
+      });
+    } else {
+      let execCounter = 2;
+      sessionInstructionHistory.forEach((step) => {
+        // Step Markdown Header
+        cells.push({
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            `---\n\n`,
+            `## 🎯 Step ${step.stepIndex}: User Instruction\n`,
+            `> **User Prompt:** \`${step.instruction}\`  \n`,
+            `> **Timestamp:** \`${step.time}\` | **Pipeline Latency:** \`${step.latencyMs} ms\` | **Tokens Saved:** \`${step.tokensSaved}\`  \n`,
+            `> **Rows:** \`${step.initRows}\` &rarr; \`${step.finalRows}\` (${step.rowsDiff >= 0 ? '-' : '+'}${Math.abs(step.rowsDiff)} rows)  \n`,
+            `> **Telemetry:** ${step.nullsResolved} nulls resolved, ${step.dupsRemoved} duplicates dropped.`
+          ]
+        });
+
+        // Step Code Cells
+        if (step.codes && step.codes.length > 0) {
+          step.codes.forEach((c) => {
+            const entryMatch = c.code.match(/def\s+([a-zA-Z0-9_]+)\s*\(/);
+            const entrypoint = entryMatch ? entryMatch[1] : "transform_dataset";
+            cells.push({
+              cell_type: "code",
+              execution_count: execCounter++,
+              metadata: {},
+              outputs: [],
+              source: [
+                `# Agent Skill: ${c.subtask} (${c.status})\n`,
+                `${c.code}\n\n`,
+                `# Apply transformation\n`,
+                `df = ${entrypoint}(df)\n`,
+                `print(f"Executed '${c.subtask}'. Updated shape: {df.shape}")\n`,
+                `df.head()`
+              ]
+            });
+          });
+        }
+
+        // If Chart was generated in this step
+        if (step.chart && step.chart.python_code) {
+          cells.push({
+            cell_type: "markdown",
+            metadata: {},
+            source: [
+              `### 📊 Data Visualization: ${step.chart.title}\n`,
+              `Generated ${step.chart.type.toUpperCase()} chart in response to user instruction: *"${step.instruction}"*.`
+            ]
+          });
+
+          cells.push({
+            cell_type: "code",
+            execution_count: execCounter++,
+            metadata: {},
+            outputs: [],
+            source: [
+              `${step.chart.python_code}`
+            ]
+          });
+        }
+      });
+    }
+
+    // Final Summary Cell
+    cells.push({
+      cell_type: "markdown",
+      metadata: {},
+      source: [
+        `---\n\n`,
+        `## 🏁 Pipeline Conclusion\n`,
+        `All requested agent transformations and data visualizations have executed.\n`,
+        `The transformed dataset is fully documented and ready for modeling or analytics.`
+      ]
+    });
+
+    const notebookJson = {
+      cells: cells,
+      metadata: {
+        language_info: {
+          name: "python",
+          version: "3.10"
+        },
+        kernelspec: {
+          display_name: "Python 3 (ipykernel)",
+          language: "python",
+          name: "python3"
+        }
+      },
+      nbformat: 4,
+      nbformat_minor: 5
+    };
+
+    const blob = new Blob([JSON.stringify(notebookJson, null, 2)], { type: "application/x-ipynb+json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", downloadFileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  // Hook up notebook download buttons
+  if (btnDownloadNotebook) {
+    btnDownloadNotebook.addEventListener("click", downloadJupyterNotebook);
+  }
+  if (btnDownloadNotebookSec) {
+    btnDownloadNotebookSec.addEventListener("click", downloadJupyterNotebook);
+  }
+
   // Quick instruction suggestion chips
   document.querySelectorAll(".btn-instruction-chip").forEach(chip => {
     chip.addEventListener("click", () => {
@@ -369,6 +776,16 @@ function setupTabularWorkbench() {
           datasetChainStatus.classList.remove("hidden");
         }
       }
+
+      // 1. Render dynamic chart if visualization was generated
+      if (data.chart) {
+        renderDynamicChart(data.chart);
+      }
+
+      // 2. Record instruction and update step-by-step notebook history
+      recordAndRenderNotebookStep(userInstruction, data);
+
+      // 3. Render tabular results diff & table preview
       renderTabularResults(data);
       updateHeaderSkillCount();
     } catch (err) {

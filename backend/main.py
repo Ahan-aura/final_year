@@ -160,7 +160,8 @@ def clean_tabular_data(req: TabularTaskRequest):
             "sample_cleaned_rows": res["cleaned_records"][:15],
             "columns": res["cleaned_columns"],
             "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
-            "total_rows": len(res["cleaned_dataframe"])
+            "total_rows": len(res["cleaned_dataframe"]),
+            "chart": res.get("chart")
         }
     except Exception as e:
         import traceback
@@ -196,7 +197,8 @@ def upload_csv_and_clean(req: UploadCsvRequest):
             "sample_cleaned_rows": res["cleaned_records"][:15],
             "columns": res["cleaned_columns"],
             "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
-            "total_rows": len(res["cleaned_dataframe"])
+            "total_rows": len(res["cleaned_dataframe"]),
+            "chart": res.get("chart")
         }
     except Exception as e:
         import traceback

@@ -152,14 +152,20 @@
                 <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-amber-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Convert every city name into uppercase">
                   ✨ "Convert every city name into uppercase"
                 </button>
+                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Customer vs Country bar graph">
+                  📊 "Customer vs Country bar graph"
+                </button>
+                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-indigo-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Salary by Department bar chart">
+                  📈 "Salary by Department bar chart"
+                </button>
                 <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-emerald-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Add column 'bonus' as 10% of Salary">
                   💰 "Add column bonus as 10% of Salary"
                 </button>
                 <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-purple-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Calculate total = Price * Quantity">
                   🧮 "total = Price * Quantity"
                 </button>
-                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-rose-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Add column is_senior as True if Age >= 21 else False">
-                  👴 "is_senior if Age >= 21"
+                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-rose-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="delete Employee name starting with V">
+                  🗑️ "delete Employee starting with V"
                 </button>
               </div>
             </div>
@@ -204,6 +210,23 @@
           </div>
         </div>
 
+        <!-- DYNAMIC CHART VISUALIZATION CARD -->
+        <div id="chart-visualization-card" class="glass-card space-y-3 hidden">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+            <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i>
+              <span id="chart-dynamic-title">Dynamic Visualization</span>
+            </h4>
+            <div class="flex items-center gap-2">
+              <span id="chart-dynamic-type-badge" class="px-2 py-0.5 text-[10px] font-bold rounded uppercase bg-sky-500/20 text-sky-400 border border-sky-500/30">Bar Chart</span>
+              <span id="chart-dynamic-subtitle" class="text-xs text-slate-400 font-mono"></span>
+            </div>
+          </div>
+          <div class="relative w-full h-80 flex items-center justify-center p-3 bg-slate-950/40 rounded-lg border border-slate-800/60">
+            <canvas id="chart-dynamic-canvas"></canvas>
+          </div>
+        </div>
+
         <div class="glass-card space-y-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h4 class="font-bold text-sm text-slate-300 flex items-center gap-2">
@@ -211,6 +234,9 @@
             </h4>
             <div class="flex flex-wrap items-center gap-2">
               <span id="table-row-count-badge" class="text-xs text-slate-400 font-mono"></span>
+              <button type="button" id="btn-download-notebook" class="px-3 py-1 text-xs font-semibold rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer" title="Download step-by-step Jupyter Notebook (.ipynb) with instructions, code and plots">
+                <i data-lucide="file-code" class="w-3.5 h-3.5"></i>Download Notebook (.ipynb)
+              </button>
               <button type="button" id="btn-download-csv" class="px-3 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow transition-all cursor-pointer" title="Download transformed dataset as CSV file">
                 <i data-lucide="download" class="w-3.5 h-3.5"></i>Download Cleaned CSV
               </button>
@@ -224,6 +250,30 @@
               <thead><tr id="preview-thead"></tr></thead>
               <tbody id="preview-tbody"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- INTERACTIVE ANALYSIS HISTORY & JUPYTER NOTEBOOK TRACE -->
+        <div class="glass-card space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <div>
+              <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                <i data-lucide="book-open" class="w-4 h-4 text-amber-400"></i>
+                Session Instruction History &amp; Jupyter Notebook Log
+              </h4>
+              <p class="text-xs text-slate-400 mt-0.5">Every user prompt, generated Python code, transform output, and chart visualization logged as reproducible notebook cells.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="notebook-steps-count" class="text-xs text-slate-400 font-mono">0 instructions executed</span>
+              <button type="button" id="btn-download-notebook-secondary" class="px-3 py-1 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition-all cursor-pointer" title="Download .ipynb file">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>Export .ipynb
+              </button>
+            </div>
+          </div>
+          <div id="notebook-history-steps" class="space-y-3">
+            <div class="text-xs text-slate-500 italic p-3 bg-slate-900/40 rounded-lg border border-slate-800/50">
+              No instructions executed yet in this session. Upload a CSV or choose a preset and give any instruction (e.g., "customer vs country bar graph" or "delete Employee name starting with V") to start recording the notebook audit trail.
+            </div>
           </div>
         </div>
       </div>
