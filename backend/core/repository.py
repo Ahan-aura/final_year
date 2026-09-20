@@ -178,6 +178,49 @@ class SkillRepository:
             except Exception:
                 target_vec = None
 
+            # Action conflict guard: prevent false matching between conflicting transformations (e.g. lowercase vs camel vs uppercase)
+            q_lower = task_description.lower()
+            s_lower = (skill["task_description"] + " " + skill["name"] + " " + skill["subtask"]).lower()
+            action_groups = [
+                {"lowercase", "lower"},
+                {"uppercase", "upper", "capital"},
+                {"camel", "camelcase"},
+                {"snake", "snake_case"},
+                {"title", "titlecase"}
+            ]
+            has_conflict = False
+            for grp in action_groups:
+                q_in_grp = any(w in q_lower for w in grp)
+                s_in_grp = any(w in s_lower for w in grp)
+                if q_in_grp and not s_in_grp:
+                    # Query explicitly wants this casing, but skill has a different casing action
+                    if any(any(w in s_lower for w in other_grp) for other_grp in action_groups if other_grp != grp):
+                        has_conflict = True
+                        break
+            if has_conflict:
+                continue
+
+            # Column/Entity target guard: prevent false matching across different columns (e.g. salary vs department vs city)
+            stopwords = {
+                "make", "the", "column", "columns", "to", "in", "dataframe", "df",
+                "function", "task", "and", "a", "an", "as", "of", "all", "each", "every",
+                "convert", "set", "change", "transform", "value", "values", "names", "name"
+            }
+            import re as _re
+            q_tokens = set(_re.findall(r'[a-z0-9_]+', q_lower)) - stopwords
+            s_tokens = set(_re.findall(r'[a-z0-9_]+', s_lower)) - stopwords
+            action_words = {"lowercase", "lower", "uppercase", "upper", "camel", "camelcase", "snake", "snake_case", "clean", "impute", "drop", "bonus", "total"}
+            q_targets = q_tokens - action_words
+            s_targets = s_tokens - action_words
+
+            # If query targets specific column(s) (e.g. 'salary') and skill targets different column(s) (e.g. 'department'):
+            if q_targets and s_targets and not (q_targets & s_targets):
+                continue
+
+            # If query does not mention specific column but skill is bound to a specific column, don't false match
+            if not q_targets and s_targets and any(w in q_lower for w in action_words):
+                continue
+
             score = self.embedding_engine.semantic_similarity(
                 task_description,
                 skill["task_description"],

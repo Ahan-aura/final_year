@@ -688,6 +688,76 @@ Requirements:
 '''
             return code, entrypoint
 
+        # Case 3b: CamelCase and snake_case conversions
+        if any(w in instr_lower for w in ["camel", "camelcase", "snake", "snake_case"]):
+            is_camel = any(w in instr_lower for w in ["camel", "camelcase"])
+            target_col = None
+            for c in columns:
+                if c.lower() in instr_lower:
+                    target_col = c
+                    break
+
+            if is_camel:
+                code = f'''def {entrypoint}(df):
+    """
+    Auto-synthesized skill for: {instr_clean}
+    Converts to camelCase.
+    """
+    import pandas as pd
+    cleaned_df = df.copy()
+    def _to_camel(val):
+        parts = str(val).replace('_', ' ').replace('-', ' ').split()
+        if not parts: return ''
+        return parts[0].lower() + ''.join(p.capitalize() for p in parts[1:])
+'''
+                if target_col:
+                    code += f'''    target_col = [c for c in cleaned_df.columns if '{target_col.lower()}' in c.lower()]
+    if target_col:
+        col_name = target_col[0]
+        if cleaned_df[col_name].dtype == 'object':
+            cleaned_df[col_name] = cleaned_df[col_name].apply(_to_camel)
+        cleaned_df = cleaned_df.rename(columns={{col_name: _to_camel(col_name)}})
+    return cleaned_df
+'''
+                else:
+                    code += f'''    for c in cleaned_df.columns:
+        if cleaned_df[c].dtype == 'object':
+            cleaned_df[c] = cleaned_df[c].apply(_to_camel)
+    cleaned_df.columns = [_to_camel(c) for c in cleaned_df.columns]
+    return cleaned_df
+'''
+                return code, entrypoint
+            else:
+                code = f'''def {entrypoint}(df):
+    """
+    Auto-synthesized skill for: {instr_clean}
+    Converts to snake_case.
+    """
+    import pandas as pd
+    import re
+    cleaned_df = df.copy()
+    def _to_snake(val):
+        s = re.sub(r'[\\s\\-\\.]+', '_', str(val).strip().lower())
+        return re.sub(r'_+', '_', s).strip('_')
+'''
+                if target_col:
+                    code += f'''    target_col = [c for c in cleaned_df.columns if '{target_col.lower()}' in c.lower()]
+    if target_col:
+        col_name = target_col[0]
+        if cleaned_df[col_name].dtype == 'object':
+            cleaned_df[col_name] = cleaned_df[col_name].apply(_to_snake)
+        cleaned_df = cleaned_df.rename(columns={{col_name: _to_snake(col_name)}})
+    return cleaned_df
+'''
+                else:
+                    code += f'''    for c in cleaned_df.columns:
+        if cleaned_df[c].dtype == 'object':
+            cleaned_df[c] = cleaned_df[c].apply(_to_snake)
+    cleaned_df.columns = [_to_snake(c) for c in cleaned_df.columns]
+    return cleaned_df
+'''
+                return code, entrypoint
+
         # Case 4: Condition / Flag, e.g., "Add column is_senior if Age >= 60 else False"
         cond_match = re.search(r"if\s+([a-zA-Z0-9_ ]+)\s*(>=|<=|>|<|==|!=)\s*(\d+(?:\.\d+)?)", instr_clean, re.IGNORECASE)
         if cond_match or "if" in instr_lower:
