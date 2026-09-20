@@ -108,18 +108,31 @@ function setupTabularWorkbench() {
   const customCsv = document.getElementById("custom-csv-input");
   const instructionInput = document.getElementById("tabular-instruction-input");
   const btnLoadRaviPriya = document.getElementById("btn-load-ravi-priya-csv");
-
   const btnLoadEmployees = document.getElementById("btn-load-employees-csv");
   const btnLoadSales = document.getElementById("btn-load-sales-csv");
+  const btnResetCsv = document.getElementById("btn-reset-csv");
+  const datasetChainStatus = document.getElementById("dataset-chain-status");
 
   const RAVI_PRIYA_CSV = `Name,Age,City\nRavi,21,Chennai\nPriya,22,Hyderabad\nRavi,21,Chennai\nArun,20,Bangalore\nPriya,,Hyderabad`;
   const EMPLOYEES_CSV = `Employee,Salary,Department\nAhan,50000,AI Research\nVikram,75000,Backend\nSneha,60000,Product\nRahul,80000,Frontend`;
   const SALES_CSV = `Product,Price,Quantity\nLaptop,1000,5\nMouse,25,20\nKeyboard,75,10\nMonitor,300,4`;
 
+  let originalCsvText = "";
+
+  function setOriginalCsv(text, label = "Original") {
+    originalCsvText = text;
+    customCsv.value = text;
+    if (datasetChainStatus) {
+      datasetChainStatus.textContent = `(${label})`;
+      datasetChainStatus.className = "text-[10px] text-slate-400 font-mono";
+      datasetChainStatus.classList.remove("hidden");
+    }
+  }
+
   // Pre-load Ravi & Priya CSV button
   if (btnLoadRaviPriya) {
     btnLoadRaviPriya.addEventListener("click", () => {
-      customCsv.value = RAVI_PRIYA_CSV;
+      setOriginalCsv(RAVI_PRIYA_CSV, "Original");
       if (selectDataset) selectDataset.value = "student_records";
       if (instructionInput) instructionInput.value = "Clean this dataset";
     });
@@ -128,16 +141,30 @@ function setupTabularWorkbench() {
   // Pre-load Employees CSV button
   if (btnLoadEmployees) {
     btnLoadEmployees.addEventListener("click", () => {
-      customCsv.value = EMPLOYEES_CSV;
-      if (instructionInput) instructionInput.value = "Add column 'bonus' as 10% of Salary";
+      setOriginalCsv(EMPLOYEES_CSV, "Original");
+      if (instructionInput) instructionInput.value = "delete Employee name starting with V";
     });
   }
 
   // Pre-load Sales CSV button
   if (btnLoadSales) {
     btnLoadSales.addEventListener("click", () => {
-      customCsv.value = SALES_CSV;
+      setOriginalCsv(SALES_CSV, "Original");
       if (instructionInput) instructionInput.value = "Calculate total = Price * Quantity";
+    });
+  }
+
+  // Reset to original CSV button
+  if (btnResetCsv) {
+    btnResetCsv.addEventListener("click", () => {
+      if (originalCsvText) {
+        customCsv.value = originalCsvText;
+        if (datasetChainStatus) {
+          datasetChainStatus.textContent = "(Reset to Original)";
+          datasetChainStatus.className = "text-[10px] text-amber-400 font-mono";
+          datasetChainStatus.classList.remove("hidden");
+        }
+      }
     });
   }
 
@@ -155,7 +182,7 @@ function setupTabularWorkbench() {
   if (selectDataset) {
     selectDataset.addEventListener("change", () => {
       if (selectDataset.value === "student_records") {
-        customCsv.value = RAVI_PRIYA_CSV;
+        setOriginalCsv(RAVI_PRIYA_CSV, "Original");
       }
     });
   }
@@ -168,6 +195,9 @@ function setupTabularWorkbench() {
     try {
       let res;
       if (customCsv.value.trim()) {
+        if (!originalCsvText) {
+          originalCsvText = customCsv.value.trim();
+        }
         res = await fetch("/api/tabular/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -191,6 +221,16 @@ function setupTabularWorkbench() {
       }
 
       const data = await res.json();
+      if (data.cleaned_csv_text) {
+        // Update the textarea with the transformed CSV so subsequent instructions chain seamlessly!
+        customCsv.value = data.cleaned_csv_text;
+        if (datasetChainStatus) {
+          const rowCount = data.total_rows !== undefined ? data.total_rows : (data.sample_cleaned_rows ? data.sample_cleaned_rows.length : 0);
+          datasetChainStatus.textContent = `(Chained: ${rowCount} rows)`;
+          datasetChainStatus.className = "text-[10px] text-emerald-400 font-mono";
+          datasetChainStatus.classList.remove("hidden");
+        }
+      }
       renderTabularResults(data);
       updateHeaderSkillCount();
     } catch (err) {
@@ -271,10 +311,10 @@ function renderTabularResults(data) {
   });
 
   // Render preview table
-  renderTablePreview(data.columns, data.sample_cleaned_rows);
+  renderTablePreview(data.columns, data.sample_cleaned_rows, data.total_rows);
 }
 
-function renderTablePreview(columns, rows) {
+function renderTablePreview(columns, rows, totalRows) {
   const thead = document.getElementById("preview-thead");
   const tbody = document.getElementById("preview-tbody");
   thead.innerHTML = "";
@@ -297,7 +337,12 @@ function renderTablePreview(columns, rows) {
     tbody.appendChild(tr);
   });
 
-  document.getElementById("table-row-count-badge").textContent = `Showing 15 rows of cleaned records`;
+  const total = totalRows !== undefined ? totalRows : rows.length;
+  if (rows.length < total) {
+    document.getElementById("table-row-count-badge").textContent = `Showing ${rows.length} of ${total} records`;
+  } else {
+    document.getElementById("table-row-count-badge").textContent = `${total} records`;
+  }
 }// -------------------------------------------------------------
 // Domain 2: Code Debugging Workbench Logic
 // -------------------------------------------------------------

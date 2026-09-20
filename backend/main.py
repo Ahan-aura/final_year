@@ -158,7 +158,9 @@ def clean_tabular_data(req: TabularTaskRequest):
         "initial_profile": res["initial_profile"],
         "final_profile": res["final_profile"],
         "sample_cleaned_rows": res["cleaned_records"][:15],
-        "columns": res["cleaned_columns"]
+        "columns": res["cleaned_columns"],
+        "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
+        "total_rows": len(res["cleaned_dataframe"])
     }
 
 class UploadCsvRequest(BaseModel):
@@ -187,7 +189,9 @@ def upload_csv_and_clean(req: UploadCsvRequest):
         "initial_profile": res["initial_profile"],
         "final_profile": res["final_profile"],
         "sample_cleaned_rows": res["cleaned_records"][:15],
-        "columns": res["cleaned_columns"]
+        "columns": res["cleaned_columns"],
+        "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
+        "total_rows": len(res["cleaned_dataframe"])
     }
 
 class InspectCodeRequest(BaseModel):
