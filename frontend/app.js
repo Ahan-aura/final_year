@@ -130,12 +130,18 @@ function setupTabularWorkbench() {
   const btnLoadSales = document.getElementById("btn-load-sales-csv");
   const btnResetCsv = document.getElementById("btn-reset-csv");
   const datasetChainStatus = document.getElementById("dataset-chain-status");
+  const csvFileInput = document.getElementById("csv-file-input");
+  const btnUploadFile = document.getElementById("btn-upload-file");
+  const btnDownloadCsv = document.getElementById("btn-download-csv");
+  const btnDownloadReport = document.getElementById("btn-download-report");
 
   const RAVI_PRIYA_CSV = `Name,Age,City\nRavi,21,Chennai\nPriya,22,Hyderabad\nRavi,21,Chennai\nArun,20,Bangalore\nPriya,,Hyderabad`;
   const EMPLOYEES_CSV = `Employee,Salary,Department\nAhan,50000,AI Research\nVikram,75000,Backend\nSneha,60000,Product\nRahul,80000,Frontend`;
   const SALES_CSV = `Product,Price,Quantity\nLaptop,1000,5\nMouse,25,20\nKeyboard,75,10\nMonitor,300,4`;
 
   let originalCsvText = "";
+  let activeDatasetName = "dataset.csv";
+  let lastTabularResult = null;
 
   function setOriginalCsv(text, label = "Original") {
     originalCsvText = text;
@@ -147,9 +153,53 @@ function setupTabularWorkbench() {
     }
   }
 
+  // File Upload via file picker button
+  if (btnUploadFile && csvFileInput) {
+    btnUploadFile.addEventListener("click", () => {
+      csvFileInput.click();
+    });
+    csvFileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      activeDatasetName = file.name;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const content = evt.target.result;
+        setOriginalCsv(content, file.name);
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // Drag and Drop CSV file directly into textarea
+  if (customCsv) {
+    customCsv.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      customCsv.classList.add("border-sky-400", "bg-sky-950/20");
+    });
+    customCsv.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      customCsv.classList.remove("border-sky-400", "bg-sky-950/20");
+    });
+    customCsv.addEventListener("drop", (e) => {
+      e.preventDefault();
+      customCsv.classList.remove("border-sky-400", "bg-sky-950/20");
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        activeDatasetName = file.name;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          setOriginalCsv(evt.target.result, file.name);
+        };
+        reader.readAsText(file);
+      }
+    });
+  }
+
   // Pre-load Ravi & Priya CSV button
   if (btnLoadRaviPriya) {
     btnLoadRaviPriya.addEventListener("click", () => {
+      activeDatasetName = "student_records.csv";
       setOriginalCsv(RAVI_PRIYA_CSV, "Original");
       if (selectDataset) selectDataset.value = "student_records";
       if (instructionInput) instructionInput.value = "Clean this dataset";
@@ -159,6 +209,7 @@ function setupTabularWorkbench() {
   // Pre-load Employees CSV button
   if (btnLoadEmployees) {
     btnLoadEmployees.addEventListener("click", () => {
+      activeDatasetName = "employees.csv";
       setOriginalCsv(EMPLOYEES_CSV, "Original");
       if (instructionInput) instructionInput.value = "delete Employee name starting with V";
     });
@@ -167,6 +218,7 @@ function setupTabularWorkbench() {
   // Pre-load Sales CSV button
   if (btnLoadSales) {
     btnLoadSales.addEventListener("click", () => {
+      activeDatasetName = "sales.csv";
       setOriginalCsv(SALES_CSV, "Original");
       if (instructionInput) instructionInput.value = "Calculate total = Price * Quantity";
     });
@@ -186,6 +238,71 @@ function setupTabularWorkbench() {
     });
   }
 
+  // Download Cleaned CSV button
+  if (btnDownloadCsv) {
+    btnDownloadCsv.addEventListener("click", () => {
+      let csvContent = "";
+      let baseName = activeDatasetName.replace(/\.csv$/i, "");
+      let downloadFileName = `cleaned_${baseName}.csv`;
+
+      if (lastTabularResult && lastTabularResult.cleaned_csv_text) {
+        csvContent = lastTabularResult.cleaned_csv_text;
+      } else if (customCsv && customCsv.value.trim()) {
+        csvContent = customCsv.value.trim();
+        downloadFileName = `${baseName}.csv`;
+      } else {
+        alert("No dataset available to download! Please upload or clean a dataset first.");
+        return;
+      }
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", downloadFileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Export Report (JSON) button
+  if (btnDownloadReport) {
+    btnDownloadReport.addEventListener("click", () => {
+      if (!lastTabularResult) {
+        alert("Run an agent instruction or dataset cleaning first to generate an academic evaluation report!");
+        return;
+      }
+      const baseName = activeDatasetName.replace(/\.csv$/i, "");
+      const reportData = {
+        project: "Self-Evolving Agentic AI Workbench",
+        institution: "Mohan Babu University, Tirupati",
+        batch: "Batch A8-2",
+        guide: "Ms. Anusha Venkat N",
+        base_paper: "Pati, A. K. (2025). Agentic AI. IEEE Access.",
+        dataset_name: activeDatasetName,
+        generated_at: new Date().toISOString(),
+        diff_report: lastTabularResult.diff_report,
+        pipeline_trace: lastTabularResult.pipeline_trace,
+        initial_profile: lastTabularResult.initial_profile,
+        final_profile: lastTabularResult.final_profile,
+        sample_cleaned_rows: lastTabularResult.sample_cleaned_rows
+      };
+
+      const jsonStr = JSON.stringify(reportData, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `cleaning_report_${baseName}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+  }
+
   // Quick instruction suggestion chips
   document.querySelectorAll(".btn-instruction-chip").forEach(chip => {
     chip.addEventListener("click", () => {
@@ -200,7 +317,10 @@ function setupTabularWorkbench() {
   if (selectDataset) {
     selectDataset.addEventListener("change", () => {
       if (selectDataset.value === "student_records") {
+        activeDatasetName = "student_records.csv";
         setOriginalCsv(RAVI_PRIYA_CSV, "Original");
+      } else {
+        activeDatasetName = `${selectDataset.value}.csv`;
       }
     });
   }
@@ -221,7 +341,7 @@ function setupTabularWorkbench() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             csv_text: customCsv.value.trim(),
-            filename: selectDataset.value === "student_records" ? "student_records.csv" : "custom_input.csv",
+            filename: activeDatasetName || "custom_input.csv",
             session_id: currentSession,
             instruction: userInstruction
           })
@@ -237,6 +357,8 @@ function setupTabularWorkbench() {
           })
         });
       }
+
+      lastTabularResult = data;
       if (data.cleaned_csv_text) {
         // Update the textarea with the transformed CSV so subsequent instructions chain seamlessly!
         customCsv.value = data.cleaned_csv_text;

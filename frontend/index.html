@@ -114,12 +114,16 @@
               </select>
             </div>
             <div class="pt-2 border-t border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-1.5">
-                  <label class="text-xs font-semibold text-slate-400">Or Upload / Paste ANY CSV:</label>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <input type="file" id="csv-file-input" accept=".csv,text/csv,text/plain" class="hidden" />
+                  <button type="button" id="btn-upload-file" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow transition-all cursor-pointer" title="Upload a CSV file from your computer">
+                    <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>Upload .CSV File
+                  </button>
                   <span id="dataset-chain-status" class="text-[10px] text-sky-400 font-mono hidden"></span>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Presets:</span>
                   <button type="button" id="btn-load-ravi-priya-csv" class="text-[11px] text-sky-400 hover:text-sky-300 font-medium hover:underline flex items-center gap-0.5" title="Student records with duplicates & missing age">
                     📋 Ravi &amp; Priya
                   </button>
@@ -134,7 +138,7 @@
                   </button>
                 </div>
               </div>
-              <textarea id="custom-csv-input" rows="4" placeholder="Paste ANY CSV text here with any columns..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-300"></textarea>
+              <textarea id="custom-csv-input" rows="4" placeholder="Upload a .csv file above, drag & drop here, or paste ANY raw CSV text..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-300 transition-colors focus:border-sky-500 focus:outline-none"></textarea>
             </div>
             <div class="pt-2 border-t border-slate-800 space-y-2">
               <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
@@ -201,11 +205,19 @@
         </div>
 
         <div class="glass-card space-y-3">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <h4 class="font-bold text-sm text-slate-300 flex items-center gap-2">
               <i data-lucide="table-2" class="w-4 h-4 text-sky-400"></i>Transformed Dataset Preview
             </h4>
-            <span id="table-row-count-badge" class="text-xs text-slate-400"></span>
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="table-row-count-badge" class="text-xs text-slate-400 font-mono"></span>
+              <button type="button" id="btn-download-csv" class="px-3 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow transition-all cursor-pointer" title="Download transformed dataset as CSV file">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>Download Cleaned CSV
+              </button>
+              <button type="button" id="btn-download-report" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer" title="Export full academic cleaning report and telemetry as JSON">
+                <i data-lucide="file-text" class="w-3.5 h-3.5"></i>Export Report (JSON)
+              </button>
+            </div>
           </div>
           <div class="overflow-x-auto border border-slate-800 rounded-lg max-h-72">
             <table id="cleaned-preview-table" class="data-table">

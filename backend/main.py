@@ -203,6 +203,21 @@ def upload_csv_and_clean(req: UploadCsvRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Tabular pipeline error: {str(e)}")
 
+class DownloadCsvRequest(BaseModel):
+    csv_text: str
+    filename: Optional[str] = "cleaned_dataset.csv"
+
+@app.post("/api/tabular/download")
+def download_csv(req: DownloadCsvRequest):
+    """Returns downloadable CSV attachment for completed transformations."""
+    from fastapi.responses import Response
+    fname = req.filename if req.filename.endswith(".csv") else f"{req.filename}.csv"
+    return Response(
+        content=req.csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'}
+    )
+
 class InspectCodeRequest(BaseModel):
     code: str
 
