@@ -73,6 +73,16 @@ class SkillRepository:
             """)
             conn.commit()
 
+        # Ensure foundational skills are seeded even in serverless environments
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM skills;")
+                if cursor.fetchone()[0] == 0:
+                    self.seed_core_skills()
+        except Exception as e:
+            pass
+
     def add_skill(self, skill_data: Dict[str, Any]) -> str:
         """Stores a new validated skill into the repository."""
         skill_id = skill_data.get("skill_id") or str(uuid.uuid4())

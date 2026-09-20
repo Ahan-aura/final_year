@@ -44,7 +44,8 @@ def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
     base_mod = name.split(".")[0]
     if base_mod in FORBIDDEN_MODULES or base_mod not in ALLOWED_IMPORT_MODULES:
         raise ImportError(f"Importing '{name}' is strictly prohibited in execution sandbox.")
-    return __builtins__["__import__"](name, globals, locals, fromlist, level)
+    import builtins
+    return getattr(builtins, "__import__")(name, globals, locals, fromlist, level)
 
 SAFE_BUILTINS = {
     "__import__": _safe_import,

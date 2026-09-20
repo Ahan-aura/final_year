@@ -147,21 +147,25 @@ def clean_tabular_data(req: TabularTaskRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid dataset: {str(e)}")
 
-    res = agent.clean_dataset(df, session_id=req.session_id, instruction=req.instruction)
-    # Convert dataframe to JSON records
-    return {
-        "dataset_name": req.dataset_name,
-        "session_id": req.session_id,
-        "instruction": req.instruction,
-        "diff_report": res["diff_report"],
-        "pipeline_trace": res["pipeline_trace"],
-        "initial_profile": res["initial_profile"],
-        "final_profile": res["final_profile"],
-        "sample_cleaned_rows": res["cleaned_records"][:15],
-        "columns": res["cleaned_columns"],
-        "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
-        "total_rows": len(res["cleaned_dataframe"])
-    }
+    try:
+        res = agent.clean_dataset(df, session_id=req.session_id, instruction=req.instruction)
+        return {
+            "dataset_name": req.dataset_name,
+            "session_id": req.session_id,
+            "instruction": req.instruction,
+            "diff_report": res["diff_report"],
+            "pipeline_trace": res["pipeline_trace"],
+            "initial_profile": res["initial_profile"],
+            "final_profile": res["final_profile"],
+            "sample_cleaned_rows": res["cleaned_records"][:15],
+            "columns": res["cleaned_columns"],
+            "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
+            "total_rows": len(res["cleaned_dataframe"])
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Tabular pipeline error: {str(e)}")
 
 class UploadCsvRequest(BaseModel):
     csv_text: str
@@ -179,20 +183,25 @@ def upload_csv_and_clean(req: UploadCsvRequest):
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
 
     agent = get_tabular_agent()
-    res = agent.clean_dataset(df, session_id=req.session_id, instruction=req.instruction)
-    return {
-        "dataset_name": req.filename,
-        "session_id": req.session_id,
-        "instruction": req.instruction,
-        "diff_report": res["diff_report"],
-        "pipeline_trace": res["pipeline_trace"],
-        "initial_profile": res["initial_profile"],
-        "final_profile": res["final_profile"],
-        "sample_cleaned_rows": res["cleaned_records"][:15],
-        "columns": res["cleaned_columns"],
-        "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
-        "total_rows": len(res["cleaned_dataframe"])
-    }
+    try:
+        res = agent.clean_dataset(df, session_id=req.session_id, instruction=req.instruction)
+        return {
+            "dataset_name": req.filename,
+            "session_id": req.session_id,
+            "instruction": req.instruction,
+            "diff_report": res["diff_report"],
+            "pipeline_trace": res["pipeline_trace"],
+            "initial_profile": res["initial_profile"],
+            "final_profile": res["final_profile"],
+            "sample_cleaned_rows": res["cleaned_records"][:15],
+            "columns": res["cleaned_columns"],
+            "cleaned_csv_text": res["cleaned_dataframe"].to_csv(index=False),
+            "total_rows": len(res["cleaned_dataframe"])
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Tabular pipeline error: {str(e)}")
 
 class InspectCodeRequest(BaseModel):
     code: str

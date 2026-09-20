@@ -19,7 +19,7 @@ PORT = int(os.getenv("PORT", 8000))
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 # Storage Paths
-if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.getenv("VERCEL_ENV"):
     DATA_DIR = Path("/tmp/data")
     SCRATCH_DIR = Path("/tmp/scratch")
     DATA_DIR.mkdir(parents=True, exist_ok=True)

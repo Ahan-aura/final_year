@@ -6,6 +6,24 @@ let activeDomain = "tabular";
 let currentSkillIdForModal = null;
 let charts = {};
 
+async function safeJsonFetch(url, options = {}) {
+  const res = await fetch(url, options);
+  const text = await res.text();
+  if (!res.ok) {
+    let errorDetail = text;
+    try {
+      const parsed = JSON.parse(text);
+      errorDetail = parsed.detail || parsed.error || parsed.message || text;
+    } catch (_) {}
+    throw new Error(`Server Error (${res.status}): ${errorDetail}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    throw new Error(`Invalid JSON response: ${text.slice(0, 120)}`);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (window.lucide) window.lucide.createIcons();
   setupNavigation();
@@ -193,12 +211,12 @@ function setupTabularWorkbench() {
     btnClean.innerHTML = `<span class="animate-spin inline-block mr-2">&#9696;</span>Running 6-Stage Lifecycle...`;
 
     try {
-      let res;
+      let data;
       if (customCsv.value.trim()) {
         if (!originalCsvText) {
           originalCsvText = customCsv.value.trim();
         }
-        res = await fetch("/api/tabular/upload", {
+        data = await safeJsonFetch("/api/tabular/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -209,7 +227,7 @@ function setupTabularWorkbench() {
           })
         });
       } else {
-        res = await fetch("/api/tabular/clean", {
+        data = await safeJsonFetch("/api/tabular/clean", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -219,8 +237,6 @@ function setupTabularWorkbench() {
           })
         });
       }
-
-      const data = await res.json();
       if (data.cleaned_csv_text) {
         // Update the textarea with the transformed CSV so subsequent instructions chain seamlessly!
         customCsv.value = data.cleaned_csv_text;
@@ -602,21 +618,20 @@ async function setupDebuggingWorkbench() {
     btnInspect.disabled = true;
     btnInspect.innerHTML = `<span class="animate-spin inline-block mr-1">&#9696;</span>...`;
     try {
-      const res = await fetch("/api/debugging/inspect", {
+      const data = await safeJsonFetch("/api/debugging/inspect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code })
       });
-      const data = await res.json();
       if (data.success) {
         document.getElementById("custom-entrypoint").value = data.entrypoint || "";
         document.getElementById("buggy-code-view").textContent = code;
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      alert("Failed to analyze code: " + err.message);
     } finally {
       btnInspect.disabled = false;
-      btnInspect.innerHTML = `<i data-lucide="search" class="w-3 h-3 inline mr-1"></i>Auto-Detect`;
+      btnInspect.innerHTML = `<i data-lucide="scan-line" class="w-3.5 h-3.5 mr-1"></i>Auto-Detect Function & Tests`;
       if (window.lucide) window.lucide.createIcons();
     }
   });
@@ -637,30 +652,32 @@ async function setupDebuggingWorkbench() {
     loadSelectedBenchmarkDefect();
   });
 
-  // Run repair button
+  // Repair Button Execution
   btnRepair.addEventListener("click", async () => {
     btnRepair.disabled = true;
-    btnRepair.innerHTML = `<span class="animate-spin inline-block mr-2">&#9696;</span>Diagnosing & Repairing with Agent...`;
+    btnRepair.innerHTML = `<span class="animate-spin inline-block mr-2">&#9696;</span>Synthesizing Patch & Verifying Sandbox...`;
 
     try {
-      let requestPayload = { session_id: currentSession };
+      const requestPayload = {
+        session_id: currentSession
+      };
 
       if (currentDebuggingSubMode === "custom") {
         const code = document.getElementById("custom-buggy-code").value.trim();
+        const entrypoint = document.getElementById("custom-entrypoint").value.trim();
+        const testsStr = document.getElementById("custom-tests").value.trim();
+
         if (!code) {
-          alert("Please write or paste your Python code to debug.");
-          btnRepair.disabled = false;
-          btnRepair.innerHTML = `<i data-lucide="wrench" class="w-4 h-4 inline mr-1"></i>Diagnose & Repair with Agent`;
+          alert("Please provide custom buggy code to repair!");
           return;
         }
-        const entrypoint = document.getElementById("custom-entrypoint").value.trim();
-        const testsRaw = document.getElementById("custom-tests-json").value.trim();
+
         let tests = [];
-        if (testsRaw) {
+        if (testsStr) {
           try {
-            tests = JSON.parse(testsRaw);
-          } catch (pe) {
-            // Treat as empty if invalid JSON
+            tests = JSON.parse(testsStr);
+          } catch (e) {
+            alert("Custom tests JSON is invalid! Proceeding with schema-level verification.");
             tests = [];
           }
         }
@@ -675,12 +692,11 @@ async function setupDebuggingWorkbench() {
         document.getElementById("buggy-code-view").textContent = bench.code;
       }
 
-      const res = await fetch("/api/debugging/repair", {
+      const data = await safeJsonFetch("/api/debugging/repair", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestPayload)
       });
-      const data = await res.json();
       renderDebuggingResults(data);
       updateHeaderSkillCount();
     } catch (err) {
