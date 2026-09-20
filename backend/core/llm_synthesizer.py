@@ -792,6 +792,41 @@ Requirements:
 '''
             return code, entrypoint
 
+        # Case 4b: Row filtering / deletion by condition or prefix
+        if any(w in instr_lower for w in ["delete", "remove", "drop", "filter"]):
+            starts_match = re.search(r"start(?:ing|s)?\s+with\s+['\"]?([a-zA-Z0-9_]+)['\"]?", instr_clean, re.IGNORECASE)
+            if starts_match:
+                prefix = starts_match.group(1).strip()
+                target_col = None
+                for c in columns:
+                    if c.lower() in instr_lower:
+                        target_col = c
+                        break
+                code = f'''def {entrypoint}(df):
+    """
+    Auto-synthesized skill for: {instr_clean}
+    Deletes rows where string column starts with '{prefix}'.
+    """
+    import pandas as pd
+    cleaned_df = df.copy()
+'''
+                if target_col:
+                    code += f'''    target_col = [c for c in cleaned_df.columns if '{target_col.lower()}' in c.lower()]
+    if target_col:
+        col_name = target_col[0]
+        mask = cleaned_df[col_name].astype(str).str.strip().str.upper().str.startswith('{prefix.upper()}')
+        cleaned_df = cleaned_df[~mask].reset_index(drop=True)
+    return cleaned_df
+'''
+                else:
+                    code += f'''    for c in cleaned_df.columns:
+        if cleaned_df[c].dtype == 'object':
+            mask = cleaned_df[c].astype(str).str.strip().str.upper().str.startswith('{prefix.upper()}')
+            cleaned_df = cleaned_df[~mask].reset_index(drop=True)
+    return cleaned_df
+'''
+                return code, entrypoint
+
         # Case 5: String extraction, e.g., "Extract domain from email address"
         if "domain" in instr_lower and ("email" in instr_lower or any("email" in c.lower() for c in columns)):
             code = f'''def {entrypoint}(df):
@@ -827,28 +862,45 @@ Requirements:
         else:
             df_sample = df.head(3).copy()
 
+        # Detect if transformation filters or removes rows
+        is_filter_code = any(k in code_str for k in ["drop", "dropna", "drop_duplicates", "[~", "[mask", "query(", "filter", "startswith", "str.startswith"])
+
         # Case 1: Primary slice assertion
         t1 = {
             "description": "Verify function executes cleanly on input schema without runtime error",
             "inputs": [df_sample.copy()],
-            "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and len(res) > 0
+            "assertion_fn": lambda res: isinstance(res, pd.DataFrame)
         }
 
         # Case 2: Multi-row execution and shape integrity
         t2_df = pd.concat([df_sample, df_sample]).reset_index(drop=True)
-        t2 = {
-            "description": "Verify transformation preserves row count and returns pandas DataFrame",
-            "inputs": [t2_df],
-            "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and len(res) == len(t2_df)
-        }
+        if is_filter_code:
+            t2 = {
+                "description": "Verify row-filtering transformation returns valid pandas DataFrame",
+                "inputs": [t2_df],
+                "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and len(res) <= len(t2_df)
+            }
+        else:
+            t2 = {
+                "description": "Verify transformation preserves row count and returns pandas DataFrame",
+                "inputs": [t2_df],
+                "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and len(res) == len(t2_df)
+            }
 
         # Case 3: Single-row edge case
         t3_df = df_sample.head(1).copy()
-        t3 = {
-            "description": "Verify transformation handles single-row edge case defensively",
-            "inputs": [t3_df],
-            "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and len(res) == 1
-        }
+        if is_filter_code:
+            t3 = {
+                "description": "Verify row-filtering handles single-row edge case defensively",
+                "inputs": [t3_df],
+                "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and len(res) <= 1
+            }
+        else:
+            t3 = {
+                "description": "Verify transformation handles single-row edge case defensively",
+                "inputs": [t3_df],
+                "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and len(res) == 1
+            }
 
         return [t1, t2, t3]
 
