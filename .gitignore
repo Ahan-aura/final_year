@@ -28,6 +28,9 @@ scratch/
 temp/
 tmp/
 
+# Vercel
+.vercel/
+
 # Operating System files
 .DS_Store
 Thumbs.db
