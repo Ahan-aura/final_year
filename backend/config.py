@@ -65,8 +65,22 @@ TABULAR_SUBTASKS = [
     "duplicate_removal",
     "outlier_handling",
     "column_name_standardization",
-    "date_parsing_normalization"
+    "date_parsing_normalization",
+    "uppercase_city_names"
 ]
+
+TAXONOMY_ALIASES = {
+    "remove_duplicates": "duplicate_removal",
+    "duplicate_removal": "remove_duplicates",
+    "fill_missing_values": "missing_value_imputation",
+    "missing_value_imputation": "fill_missing_values",
+    "detect_outliers": "outlier_handling",
+    "outlier_handling": "detect_outliers",
+    "normalize_columns": "column_name_standardization",
+    "column_name_standardization": "normalize_columns",
+    "uppercase_cities": "uppercase_city_names",
+    "uppercase_city_names": "uppercase_cities"
+}
 
 DEBUGGING_SUBTASKS = [
     "off_by_one_fix",
@@ -76,3 +90,4 @@ DEBUGGING_SUBTASKS = [
     "operator_logic_fix",
     "missing_return_edge_case"
 ]
+

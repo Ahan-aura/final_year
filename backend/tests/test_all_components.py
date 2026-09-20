@@ -241,3 +241,86 @@ def test_arbitrary_code_debugging_domains():
     )
     assert res4["success"] is True
     assert all(v["passed"] for v in res4["verification_results"])
+
+
+def test_concrete_skills_notebook_example_ravi_priya():
+    """
+    Directly verifies the concrete pedagogical example:
+    1. AI starts with notebook containing: remove_duplicates, fill_missing_values, detect_outliers, normalize_columns.
+    2. User uploads CSV (Ravi, Priya, Arun with duplicates and missing age).
+    3. User says "Clean this dataset" -> finds and reuses remove_duplicates & fill_missing_values.
+    4. User asks "Convert every city name into uppercase" -> uppercase_city_names NOT FOUND.
+    5. Agent synthesizes function, tests in sandbox on held-out cases (Test 1, 2, 3 PASS), promotes to repo.
+    6. System gains uppercase_city_names as newly learned skill.
+    7. Next time requested -> REUSED with 0 tokens and sub-15ms latency!
+    """
+    repo = get_repository()
+    repo.seed_core_skills()
+    agent = get_tabular_agent()
+
+    # Step 1: Ensure notebook contains initial capabilities
+    assert repo.search_skills("tabular_cleaning", "remove_duplicates: remove duplicate records in dataframe") is not None
+    assert repo.search_skills("tabular_cleaning", "fill_missing_values: impute missing values in dataframe") is not None
+
+    # Step 2: Load the exact student records dataset
+    df = generate_sample_dirty_dataset("student_records")
+    assert len(df) == 5
+    assert df["Age"].isnull().sum() == 1
+    assert df.duplicated().sum() == 1
+
+    # Step 3: "Clean this dataset" -> Reuses existing validated skills
+    res_clean = agent.clean_dataset(df, session_id="session_demo", instruction="Clean this dataset")
+    assert res_clean["success"] is True
+    cleaned_df = res_clean["cleaned_dataframe"]
+    # Duplicates removed (5 -> 4 rows) and null age imputed
+    assert len(cleaned_df) == 4
+    age_col = [c for c in cleaned_df.columns if c.lower() == "age"][0]
+    assert cleaned_df[age_col].isnull().sum() == 0
+    # Confirm both steps were REUSED
+    trace_clean = res_clean["pipeline_trace"]
+    assert any(step["lifecycle_status"] == "reused" and "remove_duplicates" in step["subtask"] for step in trace_clean)
+    assert any(step["lifecycle_status"] == "reused" and "fill_missing_values" in step["subtask"] for step in trace_clean)
+
+    # Step 4 & 5: New Task: "Convert every city name into uppercase"
+    # First verify it is NOT currently in repository
+    repo_before = repo.search_skills("tabular_cleaning", "uppercase_city_names: convert every city name into uppercase")
+    # If present from previous runs, delete it to verify the learning cycle
+    if repo_before:
+        with repo._get_connection() as conn:
+            conn.cursor().execute("DELETE FROM skills WHERE subtask = 'uppercase_city_names'")
+            conn.commit()
+
+    assert repo.search_skills("tabular_cleaning", "uppercase_city_names: convert every city name into uppercase") is None
+
+    # Execute instruction -> Triggers Discovery (NOT FOUND) -> Synthesize -> Sandbox Validate -> Promote
+    res_upper = agent.clean_dataset(cleaned_df, session_id="session_demo", instruction="Convert every city name into uppercase")
+    assert res_upper["success"] is True
+    upper_df = res_upper["cleaned_dataframe"]
+
+    # Verify City names are uppercase
+    city_col = [c for c in upper_df.columns if c.lower() == "city"][0]
+    assert list(upper_df[city_col]) == ["CHENNAI", "HYDERABAD", "BANGALORE", "HYDERABAD"]
+
+    # Verify lifecycle trace shows newly learned and validated
+    trace_upper = res_upper["pipeline_trace"]
+    upper_step = [s for s in trace_upper if s["subtask"] == "uppercase_city_names"][0]
+    assert upper_step["lifecycle_status"] == "synthesized_and_validated"
+    assert "NEWLY_LEARNED" in upper_step["badge"]
+    assert upper_step["validation_report"] is not None
+    assert upper_step["validation_report"]["passed_cases"] == 3
+    assert upper_step["validation_report"]["accuracy"] == 1.0
+
+    # Step 6: Verify repository now contains newly learned uppercase_city_names
+    newly_learned = repo.search_skills("tabular_cleaning", "uppercase_city_names: convert every city name into uppercase")
+    assert newly_learned is not None
+    assert newly_learned["validation_status"] == "validated"
+
+    # Step 7: Second execution -> MUST REUSE the newly learned skill instantly!
+    res_reuse = agent.clean_dataset(df, session_id="session_beta", instruction="Convert every city name into uppercase")
+    assert res_reuse["success"] is True
+    trace_reuse = res_reuse["pipeline_trace"]
+    reuse_step = [s for s in trace_reuse if s["subtask"] == "uppercase_city_names"][0]
+    assert reuse_step["lifecycle_status"] == "reused"
+    assert "REUSED_SKILL" in reuse_step["badge"]
+    assert reuse_step["tokens_saved"] == 1200
+    assert reuse_step["latency_ms"] < 20.0

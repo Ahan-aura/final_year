@@ -44,6 +44,11 @@ app.add_middleware(
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
+@app.on_event("startup")
+def on_startup():
+    """Initializes skill repository notebook with foundational skills."""
+    get_repository().seed_core_skills()
+
 # -------------------------------------------------------------
 # Request & Response Schemas
 # -------------------------------------------------------------
@@ -53,6 +58,7 @@ class SessionRequest(BaseModel):
 class TabularTaskRequest(BaseModel):
     dataset_name: Optional[str] = "customer_churn"
     session_id: Optional[str] = "session_alpha"
+    instruction: Optional[str] = "Clean this dataset"
 
 class DebuggingTaskRequest(BaseModel):
     benchmark_key: Optional[str] = "off_by_one"
@@ -99,6 +105,11 @@ def get_sample_datasets():
     return {
         "tabular_datasets": [
             {
+                "id": "student_records",
+                "name": "Student Records (Ravi & Priya - Chennai, Hyderabad, Bangalore)",
+                "description": "Concrete example: duplicate Ravi records, missing Priya age, mixed cities (Chennai, Hyderabad, Bangalore)."
+            },
+            {
                 "id": "customer_churn",
                 "name": "Customer Churn Telecom Dataset",
                 "description": "32 rows with missing tenures, uncoerced charges ($), duplicate customer IDs, and unformatted dates."
@@ -136,11 +147,12 @@ def clean_tabular_data(req: TabularTaskRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid dataset: {str(e)}")
 
-    res = agent.clean_dataset(df, session_id=req.session_id)
+    res = agent.clean_dataset(df, session_id=req.session_id, instruction=req.instruction)
     # Convert dataframe to JSON records
     return {
         "dataset_name": req.dataset_name,
         "session_id": req.session_id,
+        "instruction": req.instruction,
         "diff_report": res["diff_report"],
         "pipeline_trace": res["pipeline_trace"],
         "initial_profile": res["initial_profile"],
@@ -153,6 +165,7 @@ class UploadCsvRequest(BaseModel):
     csv_text: str
     filename: Optional[str] = "uploaded_data.csv"
     session_id: Optional[str] = "session_alpha"
+    instruction: Optional[str] = "Clean this dataset"
 
 @app.post("/api/tabular/upload")
 def upload_csv_and_clean(req: UploadCsvRequest):
@@ -164,10 +177,11 @@ def upload_csv_and_clean(req: UploadCsvRequest):
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
 
     agent = get_tabular_agent()
-    res = agent.clean_dataset(df, session_id=req.session_id)
+    res = agent.clean_dataset(df, session_id=req.session_id, instruction=req.instruction)
     return {
         "dataset_name": req.filename,
         "session_id": req.session_id,
+        "instruction": req.instruction,
         "diff_report": res["diff_report"],
         "pipeline_trace": res["pipeline_trace"],
         "initial_profile": res["initial_profile"],

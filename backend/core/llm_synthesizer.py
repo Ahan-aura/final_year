@@ -9,7 +9,7 @@ import re
 import os
 import json
 from typing import Dict, Any, Optional, Tuple, List
-from backend.config import GEMINI_API_KEY, DEFAULT_MODEL, FALLBACK_TO_DETERMINISTIC
+from backend.config import GEMINI_API_KEY, DEFAULT_MODEL, FALLBACK_TO_DETERMINISTIC, TAXONOMY_ALIASES
 
 # Deterministic Knowledge Base of high-grade template implementations for each taxonomy subtask
 DETERMINISTIC_SYNTHESIZERS = {
@@ -147,6 +147,50 @@ DETERMINISTIC_SYNTHESIZERS = {
                     parsed = pd.to_datetime(cleaned_df[col], errors='coerce')
                     if parsed.notnull().mean() > 0.5:
                         cleaned_df[col] = parsed.dt.strftime('%Y-%m-%d')
+    return cleaned_df
+''',
+        "input_schema": {"type": "DataFrame"},
+        "output_schema": {"type": "DataFrame"}
+    },
+
+    "uppercase_city_names": {
+        "entrypoint": "uppercase_city_names",
+        "code": '''def uppercase_city_names(df):
+    """
+    Converts every city name in DataFrame into uppercase.
+    Preserves all other columns and handles case-insensitive City headers.
+    """
+    import pandas as pd
+    cleaned_df = df.copy()
+    target_col = None
+    for col in cleaned_df.columns:
+        if str(col).strip().lower() == "city":
+            target_col = col
+            break
+    if target_col is not None:
+        cleaned_df[target_col] = cleaned_df[target_col].astype(str).str.upper()
+    return cleaned_df
+''',
+        "input_schema": {"type": "DataFrame"},
+        "output_schema": {"type": "DataFrame"}
+    },
+
+    "uppercase_cities": {
+        "entrypoint": "uppercase_city_names",
+        "code": '''def uppercase_city_names(df):
+    """
+    Converts every city name in DataFrame into uppercase.
+    Preserves all other columns and handles case-insensitive City headers.
+    """
+    import pandas as pd
+    cleaned_df = df.copy()
+    target_col = None
+    for col in cleaned_df.columns:
+        if str(col).strip().lower() == "city":
+            target_col = col
+            break
+    if target_col is not None:
+        cleaned_df[target_col] = cleaned_df[target_col].astype(str).str.upper()
     return cleaned_df
 ''',
         "input_schema": {"type": "DataFrame"},
@@ -394,7 +438,9 @@ class LLMSynthesizer:
                 pass
 
         # High-grade deterministic synthesis fallback
-        entry = DETERMINISTIC_SYNTHESIZERS.get(subtask)
+        subtask_clean = subtask.strip().lower()
+        subtask_resolved = TAXONOMY_ALIASES.get(subtask_clean, subtask_clean)
+        entry = DETERMINISTIC_SYNTHESIZERS.get(subtask_clean) or DETERMINISTIC_SYNTHESIZERS.get(subtask_resolved)
         if entry:
             return {
                 "code": entry["code"],

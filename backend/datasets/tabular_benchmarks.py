@@ -7,8 +7,11 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, List
 
+from backend.config import TAXONOMY_ALIASES
+
 def get_held_out_tabular_test_cases(subtask: str) -> List[Dict[str, Any]]:
     """Returns rigorous held-out test cases for sandboxed skill validation."""
+    subtask = TAXONOMY_ALIASES.get(subtask, subtask)
     if subtask == "missing_value_imputation":
         # Case 1: Pure numeric DataFrame with known median
         df1 = pd.DataFrame({"score": [10.0, 20.0, np.nan, 40.0, 50.0]})
@@ -110,6 +113,29 @@ def get_held_out_tabular_test_cases(subtask: str) -> List[Dict[str, Any]]:
             }
         ]
 
+    elif subtask in ("uppercase_city_names", "uppercase_cities"):
+        df1 = pd.DataFrame({"City": ["Chennai", "Hyderabad", "Bangalore"]})
+        df2 = pd.DataFrame({"City": ["mumbai", "pune", "KoLkAtA"]})
+        df3 = pd.DataFrame({"Name": ["Arun"], "City": ["bangalore"]})
+
+        return [
+            {
+                "description": "Test 1: Convert standard city names to uppercase (Chennai, Hyderabad, Bangalore)",
+                "inputs": [df1],
+                "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and list(res["City"]) == ["CHENNAI", "HYDERABAD", "BANGALORE"]
+            },
+            {
+                "description": "Test 2: Handle mixed-case and lowercase city names (mumbai, pune, KoLkAtA)",
+                "inputs": [df2],
+                "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and list(res["City"]) == ["MUMBAI", "PUNE", "KOLKATA"]
+            },
+            {
+                "description": "Test 3: Preserve other columns while uppercasing City column",
+                "inputs": [df3],
+                "assertion_fn": lambda res: isinstance(res, pd.DataFrame) and res["City"].iloc[0] == "BANGALORE" and res["Name"].iloc[0] == "Arun"
+            }
+        ]
+
     return []
 
 
@@ -117,7 +143,16 @@ def generate_sample_dirty_dataset(name: str = "customer_churn") -> pd.DataFrame:
     """Generates synthetic, realistic messy datasets for live workbench experimentation."""
     np.random.seed(42)
 
-    if name == "healthcare":
+    if name in ("student_records", "ravi_priya", "students"):
+        # Concrete pedagogical example: Ravi, Priya, Arun with duplicate Ravi and missing Priya age
+        data = {
+            "Name": ["Ravi", "Priya", "Ravi", "Arun", "Priya"],
+            "Age": [21.0, 22.0, 21.0, 20.0, np.nan],
+            "City": ["Chennai", "Hyderabad", "Chennai", "Bangalore", "Hyderabad"]
+        }
+        return pd.DataFrame(data)
+
+    elif name == "healthcare":
         data = {
             " Patient ID# ": [f"P_{100+i}" for i in range(25)] + [f"P_100", f"P_101"], # duplicates
             "Patient Age": [25, 45, -5, 34, np.nan, 52, 61, 29, 300, 41, 38, np.nan, 47, 50, 62, 33, 44, 28, 59, 65, 31, 48, 53, 39, 42, 25, 45],

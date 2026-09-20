@@ -59,10 +59,12 @@ class TabularCleaningAgent:
     def clean_dataset(
         self,
         df: pd.DataFrame,
-        session_id: str = "default_session"
+        session_id: str = "default_session",
+        instruction: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Plans and runs the multi-stage cleaning pipeline through the Skill Lifecycle Engine.
+        Supports natural language instruction or automated profile-driven cleaning.
         """
         start_time = time.perf_counter()
         initial_profile = self.profile_dataframe(df)
@@ -70,39 +72,59 @@ class TabularCleaningAgent:
         pipeline_trace = []
         total_tokens_saved = 0
 
+        # Parse user instruction
+        instr_clean = (instruction or "").strip()
+        instr_lower = instr_clean.lower()
+        has_uppercase_city = ("uppercase" in instr_lower and "city" in instr_lower) or "uppercase_city_names" in instr_lower
+        is_clean_cmd = ("clean" in instr_lower) or (not instr_clean) or ("dataset" in instr_lower)
+
         # Plan subtasks needed
         planned_subtasks = []
 
-        # 1. Header standardization
-        if initial_profile["dirty_column_names"]:
-            planned_subtasks.append(("column_name_standardization", "standardize column headers to snake_case"))
+        if has_uppercase_city and not is_clean_cmd:
+            # User specifically requested the new skill: uppercase_city_names
+            planned_subtasks.append(("uppercase_city_names", "convert every city name into uppercase"))
 
-        # 2. Duplicate removal
-        if initial_profile["duplicate_rows"] > 0:
-            planned_subtasks.append(("duplicate_removal", "remove duplicate rows in dataframe"))
+        elif has_uppercase_city and is_clean_cmd:
+            # User requested cleaning + new skill
+            if initial_profile["duplicate_rows"] > 0 or "duplicate" in instr_lower:
+                planned_subtasks.append(("remove_duplicates", "remove duplicate records in dataframe"))
+            if initial_profile["total_nulls"] > 0 or "missing" in instr_lower:
+                planned_subtasks.append(("fill_missing_values", "impute missing values in dataframe"))
+            planned_subtasks.append(("uppercase_city_names", "convert every city name into uppercase"))
 
-        # 3. Type coercion
-        if initial_profile["coercion_candidates"]:
-            planned_subtasks.append(("type_coercion", "coerce dirty numeric and currency strings to float"))
+        else:
+            # Profile-driven cleaning pipeline
+            # 1. Header standardization
+            if initial_profile["dirty_column_names"]:
+                planned_subtasks.append(("normalize_columns", "standardize and normalize column headers to clean snake_case"))
 
-        # 4. Missing value imputation
-        if initial_profile["total_nulls"] > 0:
-            planned_subtasks.append(("missing_value_imputation", "impute missing values with median or mode"))
+            # 2. Duplicate removal
+            if initial_profile["duplicate_rows"] > 0 or "duplicate" in instr_lower:
+                planned_subtasks.append(("remove_duplicates", "remove duplicate records in dataframe"))
 
-        # 5. Outlier handling
-        if initial_profile["outlier_candidates"]:
-            planned_subtasks.append(("outlier_handling", "cap extreme numerical outliers using IQR fences"))
+            # 3. Type coercion
+            if initial_profile["coercion_candidates"]:
+                planned_subtasks.append(("type_coercion", "coerce dirty numeric and currency strings to float"))
 
-        # 6. Date normalization
-        if initial_profile["date_candidates"]:
-            planned_subtasks.append(("date_parsing_normalization", "normalize date strings to ISO-8601"))
+            # 4. Missing value imputation
+            if initial_profile["total_nulls"] > 0 or "missing" in instr_lower or "null" in instr_lower:
+                planned_subtasks.append(("fill_missing_values", "impute missing values in dataframe"))
 
-        # Always run basic pipeline if no specific anomaly detected
-        if not planned_subtasks:
-            planned_subtasks = [
-                ("column_name_standardization", "standardize column headers to snake_case"),
-                ("missing_value_imputation", "impute missing values with median or mode")
-            ]
+            # 5. Outlier handling
+            if initial_profile["outlier_candidates"] or "outlier" in instr_lower:
+                planned_subtasks.append(("detect_outliers", "detect and handle outliers in numerical columns using IQR fences"))
+
+            # 6. Date normalization
+            if initial_profile["date_candidates"] or "date" in instr_lower:
+                planned_subtasks.append(("date_parsing_normalization", "normalize date strings to ISO-8601"))
+
+            # Fallback if no specific anomalies flagged
+            if not planned_subtasks:
+                planned_subtasks = [
+                    ("remove_duplicates", "remove duplicate records in dataframe"),
+                    ("fill_missing_values", "impute missing values in dataframe")
+                ]
 
         # Execute planned subtasks through the 6-stage lifecycle
         for subtask, desc in planned_subtasks:
@@ -110,7 +132,7 @@ class TabularCleaningAgent:
                 domain="tabular_cleaning",
                 subtask=subtask,
                 task_name=f"Tabular Pipeline: {subtask}",
-                task_description=desc,
+                task_description=f"{subtask}: {desc}",
                 execution_args=[working_df],
                 session_id=session_id
             )
@@ -129,7 +151,8 @@ class TabularCleaningAgent:
                 "skill_name": step_res.get("skill_name_used"),
                 "success": step_res["success"],
                 "latency_ms": step_res["latency_ms"],
-                "tokens_saved": step_res.get("tokens_saved", 0)
+                "tokens_saved": step_res.get("tokens_saved", 0),
+                "validation_report": step_res.get("validation_report")
             })
 
         final_profile = self.profile_dataframe(working_df)
@@ -154,10 +177,14 @@ class TabularCleaningAgent:
             "newly_learned_steps": sum(1 for s in pipeline_trace if s["lifecycle_status"] == "synthesized_and_validated")
         }
 
+        # Ensure NaN values are converted to None for strict JSON serialization
+        import json as _json
+        json_safe_records = _json.loads(working_df.to_json(orient="records"))
+
         return {
             "success": True,
             "cleaned_dataframe": working_df,
-            "cleaned_records": working_df.to_dict(orient="records"),
+            "cleaned_records": json_safe_records,
             "cleaned_columns": list(working_df.columns),
             "diff_report": diff_report,
             "pipeline_trace": pipeline_trace,

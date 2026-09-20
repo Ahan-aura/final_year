@@ -106,8 +106,41 @@ function setupTabularWorkbench() {
   const btnClean = document.getElementById("btn-run-tabular-clean");
   const selectDataset = document.getElementById("tabular-dataset-select");
   const customCsv = document.getElementById("custom-csv-input");
+  const instructionInput = document.getElementById("tabular-instruction-input");
+  const btnLoadRaviPriya = document.getElementById("btn-load-ravi-priya-csv");
+
+  const RAVI_PRIYA_CSV = `Name,Age,City\nRavi,21,Chennai\nPriya,22,Hyderabad\nRavi,21,Chennai\nArun,20,Bangalore\nPriya,,Hyderabad`;
+
+  // Pre-load Ravi & Priya CSV button
+  if (btnLoadRaviPriya) {
+    btnLoadRaviPriya.addEventListener("click", () => {
+      customCsv.value = RAVI_PRIYA_CSV;
+      if (selectDataset) selectDataset.value = "student_records";
+      if (instructionInput) instructionInput.value = "Clean this dataset";
+    });
+  }
+
+  // Quick instruction suggestion chips
+  document.querySelectorAll(".btn-instruction-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const instr = chip.getAttribute("data-instruction");
+      if (instructionInput && instr) {
+        instructionInput.value = instr;
+      }
+    });
+  });
+
+  // When changing dropdown to student_records, auto-fill custom CSV preview
+  if (selectDataset) {
+    selectDataset.addEventListener("change", () => {
+      if (selectDataset.value === "student_records") {
+        customCsv.value = RAVI_PRIYA_CSV;
+      }
+    });
+  }
 
   btnClean.addEventListener("click", async () => {
+    const userInstruction = instructionInput ? instructionInput.value.trim() : "Clean this dataset";
     btnClean.disabled = true;
     btnClean.innerHTML = `<span class="animate-spin inline-block mr-2">&#9696;</span>Running 6-Stage Lifecycle...`;
 
@@ -119,8 +152,9 @@ function setupTabularWorkbench() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             csv_text: customCsv.value.trim(),
-            filename: "custom_input.csv",
-            session_id: currentSession
+            filename: selectDataset.value === "student_records" ? "student_records.csv" : "custom_input.csv",
+            session_id: currentSession,
+            instruction: userInstruction
           })
         });
       } else {
@@ -129,7 +163,8 @@ function setupTabularWorkbench() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             dataset_name: selectDataset.value,
-            session_id: currentSession
+            session_id: currentSession,
+            instruction: userInstruction
           })
         });
       }
@@ -141,7 +176,7 @@ function setupTabularWorkbench() {
       alert("Error executing tabular cleaning: " + err.message);
     } finally {
       btnClean.disabled = false;
-      btnClean.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i>Clean with Agent`;
+      btnClean.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i>Execute Agent Instruction`;
       if (window.lucide) window.lucide.createIcons();
     }
   });
@@ -156,7 +191,9 @@ function renderTabularResults(data) {
 
   // Badge
   const badgeSlot = document.getElementById("tabular-badge-slot");
-  if (diff.reused_steps > 0) {
+  if (diff.newly_learned_steps > 0 && diff.reused_steps > 0) {
+    badgeSlot.innerHTML = `<span class="badge badge-learned">🆕 ${diff.newly_learned_steps} Learned</span> <span class="badge badge-reused">✅ ${diff.reused_steps} Reused</span>`;
+  } else if (diff.reused_steps > 0) {
     badgeSlot.innerHTML = `<span class="badge badge-reused">✅ ${diff.reused_steps} Skills Reused</span>`;
   } else {
     badgeSlot.innerHTML = `<span class="badge badge-learned">🆕 ${diff.newly_learned_steps} Skills Learned</span>`;
@@ -168,17 +205,46 @@ function renderTabularResults(data) {
   data.pipeline_trace.forEach((s, idx) => {
     const isReused = s.lifecycle_status === "reused";
     const stepDiv = document.createElement("div");
-    stepDiv.className = "flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs";
+    stepDiv.className = "p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1.5";
+
+    let validationHtml = "";
+    if (!isReused && s.validation_report && s.validation_report.test_results && s.validation_report.test_results.length > 0) {
+      const tests = s.validation_report.test_results;
+      validationHtml = `
+        <div class="bg-slate-950 p-2 rounded border border-emerald-900/60 mt-1.5 space-y-1">
+          <div class="text-[11px] font-semibold text-emerald-400 flex items-center justify-between">
+            <span>🛡️ Sandbox Gate: ${s.validation_report.passed_cases}/${s.validation_report.total_cases} Held-Out Tests Passed (${Math.round(s.validation_report.accuracy * 100)}% Accuracy)</span>
+            <span class="text-sky-400 text-[10px]">&rarr; Promoted to Notebook</span>
+          </div>
+          <div class="text-[10px] text-slate-400 space-y-0.5 font-mono">
+            ${tests.map(t => `<div>• ${t.description || 'Test case'}: <span class="text-emerald-400 font-bold">PASS</span></div>`).join("")}
+          </div>
+        </div>
+      `;
+    } else if (isReused) {
+      validationHtml = `
+        <div class="text-[10px] text-sky-400 font-mono flex items-center gap-1.5 pt-0.5">
+          <span>⚡ Discovered & Reused from Skill Notebook</span>
+          <span class="text-slate-500">|</span>
+          <span class="text-purple-300">0 LLM tokens consumed</span>
+        </div>
+      `;
+    }
+
     stepDiv.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="text-slate-500 font-mono">#${idx+1}</span>
-        <span class="font-semibold text-slate-200">${s.subtask}</span>
-        <span class="badge ${isReused ? 'badge-reused' : 'badge-learned'}">${isReused ? 'REUSED' : 'LEARNED & VALIDATED'}</span>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500 font-mono">#${idx+1}</span>
+          <span class="font-semibold text-slate-200">${s.skill_name || s.subtask}</span>
+          <span class="badge ${isReused ? 'badge-reused' : 'badge-learned'}">${isReused ? '✅ REUSED' : '🆕 LEARNED & VALIDATED'}</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-400">
+          <span class="font-mono">${s.latency_ms} ms</span>
+          <span class="text-purple-400 font-medium">${isReused ? '+1200 saved' : '0 saved'}</span>
+        </div>
       </div>
-      <div class="flex items-center gap-3 text-slate-400">
-        <span>${s.latency_ms} ms</span>
-        <span class="text-purple-400 font-medium">${isReused ? '+1200 saved' : '0 saved'}</span>
-      </div>
+      <div class="text-[11px] text-slate-400">${s.description}</div>
+      ${validationHtml}
     `;
     stepsEl.appendChild(stepDiv);
   });
