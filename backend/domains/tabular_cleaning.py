@@ -75,25 +75,16 @@ class TabularCleaningAgent:
         # Parse user instruction
         instr_clean = (instruction or "").strip()
         instr_lower = instr_clean.lower()
-        has_uppercase_city = ("uppercase" in instr_lower and "city" in instr_lower) or "uppercase_city_names" in instr_lower
-        is_clean_cmd = ("clean" in instr_lower) or (not instr_clean) or ("dataset" in instr_lower)
 
-        # Plan subtasks needed
+        # Is this a generic cleaning command?
+        is_generic_clean = (not instr_clean) or (instr_lower in [
+            "clean", "clean this dataset", "clean dataset", "clean all",
+            "profile and clean", "standard clean", "default clean"
+        ])
+
         planned_subtasks = []
 
-        if has_uppercase_city and not is_clean_cmd:
-            # User specifically requested the new skill: uppercase_city_names
-            planned_subtasks.append(("uppercase_city_names", "convert every city name into uppercase"))
-
-        elif has_uppercase_city and is_clean_cmd:
-            # User requested cleaning + new skill
-            if initial_profile["duplicate_rows"] > 0 or "duplicate" in instr_lower:
-                planned_subtasks.append(("remove_duplicates", "remove duplicate records in dataframe"))
-            if initial_profile["total_nulls"] > 0 or "missing" in instr_lower:
-                planned_subtasks.append(("fill_missing_values", "impute missing values in dataframe"))
-            planned_subtasks.append(("uppercase_city_names", "convert every city name into uppercase"))
-
-        else:
+        if is_generic_clean:
             # Profile-driven cleaning pipeline
             # 1. Header standardization
             if initial_profile["dirty_column_names"]:
@@ -125,8 +116,19 @@ class TabularCleaningAgent:
                     ("remove_duplicates", "remove duplicate records in dataframe"),
                     ("fill_missing_values", "impute missing values in dataframe")
                 ]
+        else:
+            # Compound instruction: check if user asked to clean / remove duplicates first
+            has_compound_clean = any(k in instr_lower for k in [
+                "clean this dataset and", "clean dataset and", "remove duplicates and",
+                "remove duplicate and", "clean and", "clean data and"
+            ])
+            if has_compound_clean:
+                if initial_profile["duplicate_rows"] > 0 or "duplicate" in instr_lower:
+                    planned_subtasks.append(("remove_duplicates", "remove duplicate records in dataframe"))
+                if initial_profile["total_nulls"] > 0 or "missing" in instr_lower:
+                    planned_subtasks.append(("fill_missing_values", "impute missing values in dataframe"))
 
-        # Execute planned subtasks through the 6-stage lifecycle
+        # Execute planned standard subtasks through the 6-stage lifecycle
         for subtask, desc in planned_subtasks:
             step_res = self.lifecycle.process_task(
                 domain="tabular_cleaning",
@@ -152,7 +154,35 @@ class TabularCleaningAgent:
                 "success": step_res["success"],
                 "latency_ms": step_res["latency_ms"],
                 "tokens_saved": step_res.get("tokens_saved", 0),
-                "validation_report": step_res.get("validation_report")
+                "validation_report": step_res.get("validation_report"),
+                "code_used": step_res.get("code_used")
+            })
+
+        # If a specific arbitrary task was requested, execute it dynamically through the lifecycle
+        if not is_generic_clean:
+            dyn_res = self.lifecycle.process_dynamic_tabular_task(
+                instruction=instr_clean,
+                input_df=working_df,
+                session_id=session_id
+            )
+
+            if dyn_res["success"] and isinstance(dyn_res["result"], pd.DataFrame):
+                working_df = dyn_res["result"]
+
+            total_tokens_saved += dyn_res.get("tokens_saved", 0)
+
+            pipeline_trace.append({
+                "subtask": dyn_res.get("subtask") or dyn_res.get("skill_name_used") or "dynamic_task",
+                "description": instr_clean,
+                "lifecycle_status": dyn_res["lifecycle_status"],
+                "badge": dyn_res["badge"],
+                "skill_id": dyn_res.get("skill_id_used"),
+                "skill_name": dyn_res.get("skill_name_used"),
+                "success": dyn_res["success"],
+                "latency_ms": dyn_res["latency_ms"],
+                "tokens_saved": dyn_res.get("tokens_saved", 0),
+                "validation_report": dyn_res.get("validation_report"),
+                "code_used": dyn_res.get("code_used")
             })
 
         final_profile = self.profile_dataframe(working_df)

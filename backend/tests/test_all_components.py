@@ -324,3 +324,75 @@ def test_concrete_skills_notebook_example_ravi_priya():
     assert "REUSED_SKILL" in reuse_step["badge"]
     assert reuse_step["tokens_saved"] == 1200
     assert reuse_step["latency_ms"] < 20.0
+
+
+def test_arbitrary_user_dataset_learn_memorize_reuse():
+    """
+    Directly verifies the open-ended user requirement:
+    1. User uploads ANY arbitrary dataset (e.g. Employee salaries, Product sales).
+    2. User asks ANY arbitrary task (e.g. 'Add column bonus as 10% of Salary', 'total = Price * Quantity').
+    3. If agent does NOT know that skill:
+       - Learns it with LLM / synthesizer.
+       - Validates in sandbox on held-out test cases.
+       - Memorizes into the SQLite repository notebook (NEWLY_LEARNED).
+       - Transforms dataset accurately.
+    4. Second run: Agent finds skill in repository notebook:
+       - Reuses it immediately (REUSED_SKILL, 0 tokens, sub-20ms).
+    """
+    repo = get_repository()
+    agent = get_tabular_agent()
+
+    # Clean up skill if present from previous test
+    with repo._get_connection() as conn:
+        conn.cursor().execute("DELETE FROM skills WHERE task_description LIKE '%bonus as 10% of Salary%'")
+        conn.commit()
+
+    # Step 1: User uploads arbitrary Employee dataset
+    df_emp = pd.DataFrame({
+        "Employee": ["Ahan", "Vikram", "Sneha", "Rahul"],
+        "Salary": [50000, 75000, 60000, 80000],
+        "Department": ["AI Research", "Backend", "Product", "Frontend"]
+    })
+
+    instruction = "Add column 'bonus' as 10% of Salary"
+
+    # Step 2: Agent does not know skill -> Learns with LLM, validates in sandbox, memorizes
+    res1 = agent.clean_dataset(df_emp, session_id="user_session_1", instruction=instruction)
+    assert res1["success"] is True
+    cleaned_df1 = res1["cleaned_dataframe"]
+
+    # Verify column 'bonus' was added and calculated correctly
+    assert "bonus" in cleaned_df1.columns
+    assert list(cleaned_df1["bonus"]) == [5000.0, 7500.0, 6000.0, 8000.0]
+
+    # Verify lifecycle trace shows newly learned and validated
+    trace1 = res1["pipeline_trace"]
+    assert len(trace1) > 0
+    step1 = trace1[-1]
+    assert step1["lifecycle_status"] == "synthesized_and_validated"
+    assert "NEWLY_LEARNED" in step1["badge"]
+    assert step1["validation_report"] is not None
+    assert step1["validation_report"]["passed_cases"] >= 3
+
+    # Step 3: Verify skill is now memorized in SQLite notebook
+    memorized_skill = repo.search_skills("tabular_cleaning", instruction)
+    assert memorized_skill is not None
+    assert memorized_skill["validation_status"] == "validated"
+
+    # Step 4: Second user uploads a different dataset with Salary column and runs same instruction
+    df_emp2 = pd.DataFrame({
+        "Employee": ["Zara", "Dev"],
+        "Salary": [40000, 90000]
+    })
+    res2 = agent.clean_dataset(df_emp2, session_id="user_session_2", instruction=instruction)
+    assert res2["success"] is True
+    cleaned_df2 = res2["cleaned_dataframe"]
+    assert list(cleaned_df2["bonus"]) == [4000.0, 9000.0]
+
+    # Verify it was REUSED from the notebook with 0 LLM tokens and fast execution
+    trace2 = res2["pipeline_trace"]
+    step2 = trace2[-1]
+    assert step2["lifecycle_status"] == "reused"
+    assert "REUSED_SKILL" in step2["badge"]
+    assert step2["tokens_saved"] == 1200
+    assert step2["latency_ms"] < 25.0

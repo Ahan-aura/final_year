@@ -109,7 +109,12 @@ function setupTabularWorkbench() {
   const instructionInput = document.getElementById("tabular-instruction-input");
   const btnLoadRaviPriya = document.getElementById("btn-load-ravi-priya-csv");
 
+  const btnLoadEmployees = document.getElementById("btn-load-employees-csv");
+  const btnLoadSales = document.getElementById("btn-load-sales-csv");
+
   const RAVI_PRIYA_CSV = `Name,Age,City\nRavi,21,Chennai\nPriya,22,Hyderabad\nRavi,21,Chennai\nArun,20,Bangalore\nPriya,,Hyderabad`;
+  const EMPLOYEES_CSV = `Employee,Salary,Department\nAhan,50000,AI Research\nVikram,75000,Backend\nSneha,60000,Product\nRahul,80000,Frontend`;
+  const SALES_CSV = `Product,Price,Quantity\nLaptop,1000,5\nMouse,25,20\nKeyboard,75,10\nMonitor,300,4`;
 
   // Pre-load Ravi & Priya CSV button
   if (btnLoadRaviPriya) {
@@ -117,6 +122,22 @@ function setupTabularWorkbench() {
       customCsv.value = RAVI_PRIYA_CSV;
       if (selectDataset) selectDataset.value = "student_records";
       if (instructionInput) instructionInput.value = "Clean this dataset";
+    });
+  }
+
+  // Pre-load Employees CSV button
+  if (btnLoadEmployees) {
+    btnLoadEmployees.addEventListener("click", () => {
+      customCsv.value = EMPLOYEES_CSV;
+      if (instructionInput) instructionInput.value = "Add column 'bonus' as 10% of Salary";
+    });
+  }
+
+  // Pre-load Sales CSV button
+  if (btnLoadSales) {
+    btnLoadSales.addEventListener("click", () => {
+      customCsv.value = SALES_CSV;
+      if (instructionInput) instructionInput.value = "Calculate total = Price * Quantity";
     });
   }
 

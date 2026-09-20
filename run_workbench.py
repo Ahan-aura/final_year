@@ -40,7 +40,7 @@ def main():
         "backend.main:app",
         host=HOST,
         port=PORT,
-        reload=False,
+        reload=True,
         log_level="info"
     )
 

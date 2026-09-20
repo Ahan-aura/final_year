@@ -115,18 +115,26 @@
             </div>
             <div class="pt-2 border-t border-slate-800 space-y-2">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-slate-400">Or Upload / Paste CSV:</label>
-                <button type="button" id="btn-load-ravi-priya-csv" class="text-[11px] text-sky-400 hover:text-sky-300 font-medium hover:underline flex items-center gap-1">
-                  <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>Load Ravi & Priya CSV
-                </button>
+                <label class="text-xs font-semibold text-slate-400">Or Upload / Paste ANY CSV:</label>
+                <div class="flex gap-2">
+                  <button type="button" id="btn-load-ravi-priya-csv" class="text-[11px] text-sky-400 hover:text-sky-300 font-medium hover:underline flex items-center gap-0.5" title="Student records with duplicates & missing age">
+                    📋 Ravi &amp; Priya
+                  </button>
+                  <button type="button" id="btn-load-employees-csv" class="text-[11px] text-amber-400 hover:text-amber-300 font-medium hover:underline flex items-center gap-0.5" title="Employee dataset with Salary">
+                    💼 Employees
+                  </button>
+                  <button type="button" id="btn-load-sales-csv" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium hover:underline flex items-center gap-0.5" title="Product dataset with Price & Quantity">
+                    🛒 Sales
+                  </button>
+                </div>
               </div>
-              <textarea id="custom-csv-input" rows="4" placeholder="Paste raw CSV text here..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-300"></textarea>
+              <textarea id="custom-csv-input" rows="4" placeholder="Paste ANY CSV text here with any columns..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-300"></textarea>
             </div>
             <div class="pt-2 border-t border-slate-800 space-y-2">
               <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
                 <span>Agent Instruction / Natural Language Task:</span>
               </label>
-              <input type="text" id="tabular-instruction-input" placeholder='e.g., "Clean this dataset" or "Convert every city name into uppercase"' class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none" value="Clean this dataset" />
+              <input type="text" id="tabular-instruction-input" placeholder='Ask ANY task, e.g., "Add column bonus as 10% of Salary" or "Calculate total = Price * Quantity"' class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none" value="Clean this dataset" />
               <div class="flex flex-wrap gap-1.5 pt-1">
                 <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-sky-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Clean this dataset">
                   🏷️ "Clean this dataset"
@@ -134,8 +142,14 @@
                 <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-amber-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Convert every city name into uppercase">
                   ✨ "Convert every city name into uppercase"
                 </button>
-                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-purple-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Clean this dataset and convert city names to uppercase">
-                  ⚡ "Clean + Uppercase Cities"
+                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-emerald-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Add column 'bonus' as 10% of Salary">
+                  💰 "Add column bonus as 10% of Salary"
+                </button>
+                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-purple-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Calculate total = Price * Quantity">
+                  🧮 "total = Price * Quantity"
+                </button>
+                <button type="button" class="btn-instruction-chip text-[11px] px-2 py-0.5 rounded bg-slate-800 text-rose-300 hover:bg-slate-700 border border-slate-700 transition-colors" data-instruction="Add column is_senior as True if Age >= 21 else False">
+                  👴 "is_senior if Age >= 21"
                 </button>
               </div>
             </div>
