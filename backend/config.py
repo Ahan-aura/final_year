@@ -55,7 +55,7 @@ SIMILARITY_THRESHOLD = 0.70  # Cosine similarity threshold for skill reuse
 
 # LLM Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-flash-latest")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-3.6-flash")
 FALLBACK_TO_DETERMINISTIC = os.getenv("FALLBACK_TO_DETERMINISTIC_SYNTHESIZER", "false").lower() == "true"
 
 # Sub-task Taxonomy

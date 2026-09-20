@@ -521,6 +521,7 @@ Requirements:
 3. Use only safe standard libraries: pandas, numpy, re, math, datetime.
 4. Do NOT import os, sys, subprocess, or use eval/exec.
 5. Work defensively: check if referenced columns exist (case-insensitive check where appropriate).
+6. If the user asks to lowercase/uppercase/rename a column, make sure to convert the column header/name itself (and if values are strings, values too) so the transformation is clearly visible in the resulting DataFrame.
 """
                 if feedback_error:
                     prompt += f"\nPrevious validation error: {feedback_error}\nPlease correct and refine."
@@ -664,7 +665,7 @@ Requirements:
             code = f'''def {entrypoint}(df):
     """
     Auto-synthesized skill for: {instr_clean}
-    Converts string columns to {func_name}case.
+    Converts to {func_name}case.
     """
     import pandas as pd
     cleaned_df = df.copy()
@@ -672,13 +673,17 @@ Requirements:
             if target_col:
                 code += f'''    target_col = [c for c in cleaned_df.columns if '{target_col.lower()}' in c.lower()]
     if target_col:
-        cleaned_df[target_col[0]] = cleaned_df[target_col[0]].astype(str).str.{func_name}()
+        col_name = target_col[0]
+        if cleaned_df[col_name].dtype == 'object':
+            cleaned_df[col_name] = cleaned_df[col_name].astype(str).str.{func_name}()
+        cleaned_df = cleaned_df.rename(columns={{col_name: col_name.{func_name}()}})
     return cleaned_df
 '''
             else:
                 code += f'''    for c in cleaned_df.columns:
         if cleaned_df[c].dtype == 'object':
             cleaned_df[c] = cleaned_df[c].astype(str).str.{func_name}()
+    cleaned_df.columns = [str(c).{func_name}() for c in cleaned_df.columns]
     return cleaned_df
 '''
             return code, entrypoint
